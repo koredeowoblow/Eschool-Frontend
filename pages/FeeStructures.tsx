@@ -5,15 +5,20 @@ import api from '../services/api';
 const FeeStructures: React.FC = () => {
   const [fees, setFees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const fetchFees = async () => {
       setIsLoading(true);
+      setError(false);
       try {
         const res = await api.get('/fee-structures');
-        setFees(res.data.data || res.data || []);
-      } catch (err) {
-        console.error("Failed to load fee structures", err);
+        const data = res.data.data || res.data || [];
+        setFees(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        console.warn("Fee structures endpoint 404/not available:", err.message);
+        setError(true);
+        setFees([]);
       } finally {
         setIsLoading(false);
       }
@@ -34,7 +39,10 @@ const FeeStructures: React.FC = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <Loader2 className="animate-spin text-brand-primary" size={32} />
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Retrieving Tariffs...</p>
+        </div>
       ) : fees.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {fees.map((fee) => (
@@ -50,21 +58,28 @@ const FeeStructures: React.FC = () => {
               </div>
               <div className="space-y-3 pt-6 border-t border-gray-100">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-gray-400 uppercase">Target</span>
-                  <span className="text-gray-700">{fee.target_classes || 'All Classes'}</span>
+                  <span className="text-gray-400 uppercase tracking-tighter">Class Target</span>
+                  <span className="text-gray-700 font-black">{fee.target_classes || 'All Levels'}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-gray-400 uppercase">Policy</span>
-                  <span className="text-brand-secondary">{fee.frequency || 'Mandatory'}</span>
+                  <span className="text-gray-400 uppercase tracking-tighter">Billing Policy</span>
+                  <span className="text-brand-secondary font-black">{fee.frequency || 'Per Term'}</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-center py-20 text-gray-400 flex flex-col items-center gap-4">
-           <Inbox size={48} strokeWidth={1} />
-           <p className="font-bold">No fee structures defined yet.</p>
+        <div className="text-center py-24 text-gray-400 flex flex-col items-center gap-4 bg-white rounded-3xl border border-dashed border-gray-200">
+           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+             <Wallet size={32} strokeWidth={1} />
+           </div>
+           <div className="space-y-1">
+             <p className="font-bold text-gray-600">No fee structures configured.</p>
+             <p className="text-xs font-medium max-w-xs mx-auto">
+               {error ? "The Finance Configuration endpoint is not responding. Contact system support." : "Establish your institution's billing rules by adding a new fee item."}
+             </p>
+           </div>
         </div>
       )}
     </div>

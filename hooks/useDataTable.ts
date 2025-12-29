@@ -8,7 +8,7 @@ interface FetchParams {
 }
 
 interface ApiResponse<T> {
-  data: any; // Can be array or object with data property
+  data: any;
   meta?: any;
 }
 
@@ -26,27 +26,42 @@ export function useDataTable<T>(fetchFn: (params: FetchParams) => Promise<ApiRes
     try {
       const result = await fetchFn({ page, search, filters });
       
-      // Standardize data extraction from Laravel Resource/Pagination envelopes
-      let extractedData = [];
-      if (Array.isArray(result.data)) {
-        extractedData = result.data;
-      } else if (result.data && Array.isArray(result.data.data)) {
+      let extractedData: T[] = [];
+      let meta: any = null;
+
+      // Case 1: Result is the standardized envelope { data: { data: [] } }
+      if (result?.data && Array.isArray(result.data.data)) {
         extractedData = result.data.data;
-      } else if (result && Array.isArray((result as any).data)) {
+        meta = result.data.meta || result.meta;
+      } 
+      // Case 2: Result is { data: [] }
+      else if (Array.isArray(result?.data)) {
+        extractedData = result.data;
+        meta = result.meta;
+      }
+      // Case 3: Result is the array itself
+      else if (Array.isArray(result)) {
+        extractedData = result as unknown as T[];
+      }
+      // Case 4: Deep nesting or direct data property
+      else if (result && (result as any).data && Array.isArray((result as any).data)) {
         extractedData = (result as any).data;
+        meta = (result as any).meta;
       }
 
-      setData(extractedData);
+      // Final fallback to prevent .map issues
+      setData(Array.isArray(extractedData) ? extractedData : []);
 
-      // Extract metadata
-      const meta = result.meta || (result as any).data?.meta || result;
-      if (meta && typeof meta === 'object') {
+      if (meta) {
         setTotal(meta.total || extractedData.length);
         setLastPage(meta.last_page || 1);
+      } else {
+        setTotal(extractedData.length);
+        setLastPage(1);
       }
     } catch (error) {
-      console.warn("Table data fetch failed:", error);
-      setData([]); // Fallback to empty array on error
+      console.warn("Table data processing failed, defaulting to empty array:", error);
+      setData([]);
     } finally {
       setIsLoading(false);
     }

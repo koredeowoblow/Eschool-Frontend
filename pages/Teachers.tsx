@@ -1,19 +1,44 @@
 import React, { useState } from 'react';
-import { Search, Plus, UserCircle, Mail, Phone, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, UserCircle, Mail, Phone, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { Teacher } from '../types';
 import { useDataTable } from '../hooks/useDataTable';
 import { DataTable } from '../components/common/DataTable';
+import { useSelectOptions } from '../hooks/useSelectOptions';
 import Modal from '../components/common/Modal';
 import api from '../services/api';
 
-const fetchTeachersApi = async ({ page, search }: { page: number, search: string }) => {
-  const response = await api.get('/teachers', { params: { page, search } });
-  return { data: response.data.data, total: response.data.total };
+const fetchTeachersApi = async (params: any) => {
+  const response = await api.get('/teachers', { params });
+  return response.data;
 };
 
 const Teachers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { data, isLoading, search, setSearch } = useDataTable(fetchTeachersApi);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data, isLoading, search, setSearch, refresh } = useDataTable<Teacher>(fetchTeachersApi);
+  
+  const { options: subjectOptions, isLoading: isLoadingSubjects } = useSelectOptions('/subjects');
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    designation: 'Lead Teacher',
+    subject_id: ''
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.post('/teachers', formData);
+      setIsModalOpen(false);
+      refresh();
+    } catch (err) {
+      console.error("Failed to hire teacher", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const columns = [
     { 
@@ -22,12 +47,11 @@ const Teachers: React.FC = () => {
       render: (t: Teacher) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-50 text-brand-primary rounded-xl flex items-center justify-center font-bold">
-            {t.name.split(' ').map(n => n[0]).join('')}
+            {t.name?.[0] || 'T'}
           </div>
           <div>
             <p className="font-bold text-gray-800">{t.name}</p>
-            {/* Fix: Changed employeeNo to employee_number to match Teacher type */}
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{t.employee_number}</p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{t.employee_number || 'STF-NEW'}</p>
           </div>
         </div>
       )
@@ -41,7 +65,7 @@ const Teachers: React.FC = () => {
         <span className={`px-2 py-1 text-[10px] font-black uppercase rounded-full ${
           t.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
         }`}>
-          {t.status}
+          {t.status || 'Active'}
         </span>
       )
     },
@@ -68,10 +92,10 @@ const Teachers: React.FC = () => {
             placeholder="Search academic staff..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-primary transition-all"
+            className="w-full bg-white border border-gray-200 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-primary transition-all shadow-sm"
           />
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
+        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
           <Plus size={18} /> Hire Teacher
         </button>
       </div>
@@ -79,23 +103,43 @@ const Teachers: React.FC = () => {
       <DataTable columns={columns} data={data} isLoading={isLoading} />
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Register Academic Staff">
-        <form className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
            <div className="space-y-1">
-             <label className="text-[10px] font-black text-gray-400 uppercase">Full Name</label>
-             <input type="text" className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-medium" />
+             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+             <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800" placeholder="e.g. Dr. Jane Smith" />
+           </div>
+           <div className="space-y-1">
+             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+             <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800" placeholder="jane.smith@school.edu" />
            </div>
            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Designation</label>
-                <input type="text" className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-medium" />
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject Expertise</label>
+                <div className="relative">
+                  <select 
+                    value={formData.subject_id} 
+                    onChange={e => setFormData({...formData, subject_id: e.target.value})}
+                    className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-800 outline-none focus:border-brand-primary appearance-none"
+                  >
+                    <option value="">Select Subject</option>
+                    {subjectOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {isLoadingSubjects && <Loader2 className="absolute right-3 top-3.5 animate-spin text-gray-400" size={16} />}
+                </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase">Employee ID</label>
-                <input type="text" placeholder="TCH-XXX" disabled className="w-full p-3 bg-gray-100 border border-gray-100 rounded-xl font-medium" />
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Employee ID</label>
+                <input type="text" placeholder="Auto-generated" disabled className="w-full p-3.5 bg-gray-100 border border-gray-100 rounded-xl font-bold text-gray-400 cursor-not-allowed" />
               </div>
            </div>
-           <button className="w-full py-4 bg-brand-primary text-white rounded-xl font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all mt-4">
-             Add Staff Member
+           <button 
+             type="submit" 
+             disabled={isSubmitting}
+             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all mt-4 flex items-center justify-center gap-2"
+           >
+             {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Finalize Appointment"}
            </button>
         </form>
       </Modal>

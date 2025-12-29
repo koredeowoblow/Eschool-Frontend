@@ -1,19 +1,45 @@
 import React, { useState } from 'react';
-import { Search, Plus, Mail, Shield, User, Edit2, Trash2 } from 'lucide-react';
+import { Search, Plus, Mail, Shield, User, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { StaffMember } from '../types';
 import { useDataTable } from '../hooks/useDataTable';
 import { DataTable } from '../components/common/DataTable';
+import { useSelectOptions } from '../hooks/useSelectOptions';
 import Modal from '../components/common/Modal';
 import api from '../services/api';
 
-const fetchStaffApi = async ({ page, search }: { page: number, search: string }) => {
-  const response = await api.get('/staff', { params: { page, search } });
-  return { data: response.data.data, total: response.data.total };
+const fetchStaffApi = async (params: any) => {
+  const response = await api.get('/staff', { params });
+  return response.data;
 };
 
 const Staff: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { data, isLoading, search, setSearch } = useDataTable(fetchStaffApi);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data, isLoading, search, setSearch, refresh } = useDataTable<StaffMember>(fetchStaffApi);
+  
+  // Dynamic Options (Departments)
+  const { options: deptOptions, isLoading: isLoadingDepts } = useSelectOptions('/departments');
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    designation: '',
+    department_id: ''
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.post('/staff', formData);
+      setIsModalOpen(false);
+      refresh();
+    } catch (err) {
+      console.error("Staff onboarding failed", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const columns = [
     { 
@@ -26,8 +52,7 @@ const Staff: React.FC = () => {
           </div>
           <div>
             <p className="font-bold text-gray-800">{s.name}</p>
-            {/* Fix: Changed employeeNo to employee_number to match StaffMember type */}
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{s.employee_number}</p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{s.employee_number || 'STF-REF'}</p>
           </div>
         </div>
       )
@@ -37,7 +62,7 @@ const Staff: React.FC = () => {
       header: 'Department', 
       key: 'department',
       render: (s: StaffMember) => (
-        <span className="px-3 py-1 bg-blue-50 text-brand-primary text-[10px] font-bold rounded-lg uppercase">{s.department}</span>
+        <span className="px-3 py-1 bg-blue-50 text-brand-primary text-[10px] font-bold rounded-lg uppercase">{s.department || 'N/A'}</span>
       )
     },
     { header: 'Email', key: 'email', className: 'text-sm text-gray-400' },
@@ -48,7 +73,7 @@ const Staff: React.FC = () => {
         <span className={`px-2 py-1 text-[10px] font-black uppercase rounded-full ${
           s.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
         }`}>
-          {s.status}
+          {s.status || 'Active'}
         </span>
       )
     },
@@ -75,10 +100,10 @@ const Staff: React.FC = () => {
             placeholder="Search staff directory..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-primary transition-all shadow-sm"
+            className="w-full bg-white border border-gray-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-primary shadow-sm transition-all"
           />
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
+        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
           <Plus size={18} /> Onboard Staff
         </button>
       </div>
@@ -86,31 +111,51 @@ const Staff: React.FC = () => {
       <DataTable columns={columns} data={data} isLoading={isLoading} />
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Staff Member">
-        <form className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase">Full Name</label>
-            <input type="text" className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-medium" />
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+            <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800" placeholder="e.g. Samuel Adewale" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase">Department</label>
-              <select className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-medium">
-                <option>Registry</option>
-                <option>Finance</option>
-                <option>Library</option>
-                <option>IT Support</option>
-              </select>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Department</label>
+              <div className="relative">
+                <select 
+                  required
+                  value={formData.department_id}
+                  onChange={e => setFormData({...formData, department_id: e.target.value})}
+                  className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 appearance-none"
+                >
+                  <option value="">Select Dept</option>
+                  {deptOptions.length > 0 ? deptOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  )) : (
+                    <>
+                      <option value="1">Registry</option>
+                      <option value="2">Finance</option>
+                      <option value="3">IT Support</option>
+                    </>
+                  )}
+                </select>
+                {isLoadingDepts && <Loader2 className="absolute right-3 top-3.5 animate-spin text-gray-400" size={16} />}
+              </div>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase">Employee No</label>
-              <input type="text" placeholder="Auto-generated" disabled className="w-full p-3 bg-gray-100 border border-gray-100 rounded-xl font-medium" />
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Employee No</label>
+              <input type="text" placeholder="Auto-generated" disabled className="w-full p-3.5 bg-gray-100 border border-gray-100 rounded-xl font-bold text-gray-400 cursor-not-allowed" />
             </div>
           </div>
-          <button className="w-full py-4 bg-brand-primary text-white rounded-xl font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all mt-4">
-            Initialize Account
+          <button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all mt-4 flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Initialize Account"}
           </button>
         </form>
       </Modal>
     </div>
   );
-};export default Staff;
+};
+
+export default Staff;

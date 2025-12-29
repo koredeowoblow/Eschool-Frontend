@@ -1,33 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Clock, Calendar, Search, Save, Loader2, Inbox } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Calendar, Search, Save, Loader2, Inbox, School } from 'lucide-react';
 import api from '../services/api';
+import { useSelectOptions } from '../hooks/useSelectOptions';
 
 const Attendance: React.FC = () => {
   const [students, setStudents] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [attendance, setAttendance] = useState<Record<string, string>>({});
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClass, setSelectedClass] = useState('');
+
+  const { options: classOptions, isLoading: isLoadingClasses } = useSelectOptions('/classes');
+
+  const fetchClassStudents = async (classId: string) => {
+    if (!classId) return;
+    setIsLoading(true);
+    try {
+      const res = await api.get('/students', { params: { class_id: classId, per_page: 100 } });
+      const list = res.data.data || res.data || [];
+      setStudents(list);
+      
+      const initial = Object.fromEntries(list.map((s: any) => [s.id, 'Present']));
+      setAttendance(initial);
+    } catch (err) {
+      console.error("Failed to load students for attendance", err);
+      setStudents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchClassStudents = async () => {
-      setIsLoading(true);
-      try {
-        const res = await api.get('/students', { params: { paginate: 0 } });
-        const list = res.data.data || res.data;
-        setStudents(list);
-        
-        // Initialize attendance state
-        const initial = Object.fromEntries(list.map((s: any) => [s.id, 'Present']));
-        setAttendance(initial);
-      } catch (err) {
-        console.error("Failed to load students for attendance", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchClassStudents();
-  }, []);
+    if (selectedClass) {
+      fetchClassStudents(selectedClass);
+    }
+  }, [selectedClass]);
 
   const toggleStatus = (id: string, status: string) => {
     setAttendance(prev => ({ ...prev, [id]: status }));
@@ -42,113 +50,116 @@ const Attendance: React.FC = () => {
   };
 
   const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.full_name || s.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Daily Attendance</h2>
-          <p className="text-sm text-gray-500 font-medium tracking-tight">Register for Academic Session 2024/25</p>
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <div className="flex items-center gap-4">
+           <div className="w-12 h-12 bg-blue-50 text-brand-primary rounded-2xl flex items-center justify-center">
+             <School size={24} />
+           </div>
+           <div>
+             <h2 className="text-xl font-bold text-gray-800 tracking-tight">Daily Register</h2>
+             <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Academic Session 2024/25</p>
+           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
+            <select 
+              value={selectedClass} 
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="pl-4 pr-10 py-2.5 bg-gray-50 border-none rounded-xl text-sm font-bold text-gray-700 outline-none ring-1 ring-gray-100 focus:ring-brand-primary transition-all appearance-none min-w-[160px]"
+            >
+              <option value="">Select Class</option>
+              {classOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+            {isLoadingClasses && <Loader2 className="absolute right-3 top-3 animate-spin text-brand-primary" size={14} />}
+          </div>
+          <div className="relative">
             <Calendar size={18} className="absolute left-3 top-2.5 text-gray-400 pointer-events-none" />
             <input 
-              type="date" 
-              value={date} 
-              onChange={(e) => setDate(e.target.value)}
+              type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm font-semibold text-gray-700 outline-none ring-1 ring-gray-200 focus:ring-brand-primary transition-all"
             />
           </div>
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
-            <Save size={18} />
-            Save Register
+          <button className="flex items-center gap-2 px-6 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
+            <Save size={18} /> Save Register
           </button>
         </div>
       </div>
 
-      <div className="card-premium overflow-hidden border border-gray-100">
+      <div className="card-premium overflow-hidden border border-gray-100 min-h-[400px]">
         <div className="p-4 border-b border-gray-50 flex items-center justify-between">
           <div className="relative flex-1 max-w-xs">
             <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
             <input 
-              type="text" 
-              placeholder="Search student..." 
-              value={searchTerm}
+              type="text" placeholder="Filter current roster..." value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-gray-50 border-none rounded-lg text-xs font-medium outline-none" 
             />
           </div>
-          {!isLoading && (
+          {!isLoading && students.length > 0 && (
             <div className="flex gap-4">
-               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div><span className="text-[10px] font-bold text-gray-400 uppercase">Present: {Object.values(attendance).filter(v => v === 'Present').length}</span></div>
-               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-[10px] font-bold text-gray-400 uppercase">Absent: {Object.values(attendance).filter(v => v === 'Absent').length}</span></div>
+               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div><span className="text-[10px] font-black text-gray-400 uppercase">Present: {Object.values(attendance).filter(v => v === 'Present').length}</span></div>
+               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-[10px] font-black text-gray-400 uppercase">Absent: {Object.values(attendance).filter(v => v === 'Absent').length}</span></div>
             </div>
           )}
         </div>
         
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex flex-col items-center py-20 gap-4">
+            <div className="flex flex-col items-center py-24 gap-4">
               <Loader2 className="animate-spin text-brand-primary" size={32} />
-              <p className="text-xs font-bold text-gray-400 uppercase">Loading student roster...</p>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Syncing Roster...</p>
+            </div>
+          ) : !selectedClass ? (
+            <div className="flex flex-col items-center py-24 gap-4 text-gray-300">
+               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                 <School size={32} strokeWidth={1}/>
+               </div>
+               <p className="font-bold text-gray-400">Please select a class to start marking attendance.</p>
             </div>
           ) : filteredStudents.length === 0 ? (
-            <div className="flex flex-col items-center py-20 gap-2 text-gray-300">
+            <div className="flex flex-col items-center py-24 gap-2 text-gray-300">
                <Inbox size={48} strokeWidth={1}/>
-               <p className="font-bold">No students found.</p>
+               <p className="font-bold">No students matched your search criteria.</p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Student</th>
-                  <th className="px-6 py-4 text-center">Mark Attendance</th>
+                <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <th className="px-6 py-4 w-20">Status</th>
+                  <th className="px-6 py-4">Student Identity</th>
+                  <th className="px-6 py-4 text-center">Marking Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50/30 transition-colors">
                     <td className="px-6 py-4">
-                      <div className={`w-2.5 h-2.5 rounded-full ${
+                      <div className={`w-3 h-3 rounded-full shadow-sm ${
                         attendance[student.id] === 'Present' ? 'bg-green-500' :
                         attendance[student.id] === 'Absent' ? 'bg-red-500' : 'bg-orange-500'
                       }`}></div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 font-bold overflow-hidden shadow-sm border border-white">
-                          {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover"/> : student.name[0]}
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 font-bold overflow-hidden border border-white shadow-sm">
+                          {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover"/> : (student.full_name || student.name || '?')[0]}
                         </div>
-                        <span className="text-sm font-bold text-gray-700">{student.name}</span>
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{student.full_name || student.name}</p>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{student.admission_number || 'REG-STUDENT'}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button 
-                          onClick={() => toggleStatus(student.id, 'Present')}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${getStatusStyle(student.id, 'Present')}`}
-                        >
-                          <CheckCircle2 size={14} />
-                          Present
-                        </button>
-                        <button 
-                          onClick={() => toggleStatus(student.id, 'Late')}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${getStatusStyle(student.id, 'Late')}`}
-                        >
-                          <Clock size={14} />
-                          Late
-                        </button>
-                        <button 
-                          onClick={() => toggleStatus(student.id, 'Absent')}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${getStatusStyle(student.id, 'Absent')}`}
-                        >
-                          <XCircle size={14} />
-                          Absent
-                        </button>
+                      <div className="flex items-center justify-center gap-3">
+                        <button onClick={() => toggleStatus(student.id, 'Present')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Present')}`}><CheckCircle2 size={14} /> Present</button>
+                        <button onClick={() => toggleStatus(student.id, 'Late')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Late')}`}><Clock size={14} /> Late</button>
+                        <button onClick={() => toggleStatus(student.id, 'Absent')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Absent')}`}><XCircle size={14} /> Absent</button>
                       </div>
                     </td>
                   </tr>
