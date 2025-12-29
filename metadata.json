@@ -1,0 +1,8 @@
+{
+  "name": "Copy of eSchool Premium Management",
+  "description": "A modern React migration of the eSchool ERP system, featuring role-based dashboards, LMS integration, and student performance tracking with Gemini AI support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
