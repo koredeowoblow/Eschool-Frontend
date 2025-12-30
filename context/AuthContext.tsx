@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
 import api from '../services/api';
@@ -13,6 +14,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const normalizeRole = (role: string | undefined): UserRole => {
+  if (!role) return UserRole.STUDENT;
+  const r = role.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (r.includes('superadmin')) return UserRole.SUPER_ADMIN;
+  if (r.includes('schooladmin')) return UserRole.SCHOOL_ADMIN;
+  if (r.includes('teacher')) return UserRole.TEACHER;
+  if (r.includes('guardian') || r.includes('parent')) return UserRole.GUARDIAN;
+  if (r.includes('student')) return UserRole.STUDENT;
+  if (r.includes('finance')) return UserRole.SCHOOL_ADMIN;
+  return UserRole.STUDENT;
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,58 +38,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (storedUser && token) {
       try {
         const parsedUser = JSON.parse(storedUser);
+        parsedUser.role = normalizeRole(parsedUser.role);
         setUser(parsedUser);
         
-        const apiUrl = 'https://eschool-1.onrender.com/api/v1';
-        const echoInstance = initEcho(token, apiUrl.replace('/api/v1', ''));
-        setEcho(echoInstance);
-        (window as any).Echo = echoInstance;
+        // Connect Echo with cleanup check
+        if (token) {
+          const apiUrl = 'https://eschool-1.onrender.com/api/v1';
+          const echoInstance = initEcho(token, apiUrl.replace('/api/v1', ''));
+          setEcho(echoInstance);
+          (window as any).Echo = echoInstance;
+        }
       } catch (e) {
-        console.error("Session restoration failed:", e);
+        console.error("Corrupted session data. Clearing cache.");
         localStorage.removeItem('eschool_token');
         localStorage.removeItem('eschool_user');
       }
     }
     setIsLoading(false);
+
+    return () => {
+      if (echo) {
+        try { echo.disconnect(); } catch (e) {}
+      }
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
       const response = await api.post('/login', { email, password });
-      
       const responseData = response.data?.data || response.data;
       const { user: userData, token } = responseData || {};
       
-      if (!token) {
-        throw new Error("Authentication failed: No token received from server.");
-      }
+      if (!token) throw new Error("Authentication failure: Missing Token.");
+
+      const normalizedRole = normalizeRole(userData?.role || 'Student');
 
       const newUser: User = {
         id: String(userData?.id || '1'),
         name: userData?.name || email.split('@')[0],
         email: userData?.email || email,
-        role: (userData?.role as UserRole) || UserRole.STUDENT,
+        role: normalizedRole,
         avatar: userData?.avatar || `https://picsum.photos/seed/${email}/100/100`
       };
+
+      // Disconnect existing echo before login
+      if (echo) try { echo.disconnect(); } catch(e){}
 
       setUser(newUser);
       localStorage.setItem('eschool_token', token);
       localStorage.setItem('eschool_user', JSON.stringify(newUser));
 
-      try {
-        const apiUrl = 'https://eschool-1.onrender.com/api/v1';
-        const echoInstance = initEcho(token, apiUrl.replace('/api/v1', ''));
-        setEcho(echoInstance);
-        (window as any).Echo = echoInstance;
-      } catch (echoError) {
-        console.warn("Echo failed to initialize", echoError);
-      }
+      const apiUrl = 'https://eschool-1.onrender.com/api/v1';
+      const echoInstance = initEcho(token, apiUrl.replace('/api/v1', ''));
+      setEcho(echoInstance);
+      (window as any).Echo = echoInstance;
 
     } catch (error: any) {
-      // Avoid concatenating strings with objects to prevent [object Object]
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error(`Auth Logic Error: ${msg}`, error);
       throw error; 
     } finally {
       setIsLoading(false);
@@ -85,12 +103,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     if (echo) {
-      try {
-        echo.disconnect();
-      } catch (e) {}
+      try { echo.disconnect(); } catch (e) {}
     }
     setUser(null);
     setEcho(null);
+    (window as any).Echo = undefined;
     localStorage.removeItem('eschool_token');
     localStorage.removeItem('eschool_user');
     api.post('/logout').catch(() => {});
@@ -105,8 +122,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

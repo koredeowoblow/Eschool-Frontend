@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -38,7 +39,6 @@ const Login: React.FC = () => {
       }
 
       setError(message);
-      // Log label and error separately to avoid concatenation-induced [object Object]
       console.error("Login component caught error:", err);
     } finally {
       setIsSubmitting(false);

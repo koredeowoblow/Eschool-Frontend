@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { School, User, Package, ArrowRight, ArrowLeft, CheckCircle2, Globe, Mail, MapPin } from 'lucide-react';
 
 const Register: React.FC = () => {
@@ -102,7 +102,6 @@ const Register: React.FC = () => {
         </div>
 
         <div className="card-premium p-8 glass-effect relative">
-          {/* Progress Bar */}
           <div className="flex gap-2 mb-8">
             {[1, 2, 3].map(i => (
               <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= i ? 'bg-brand-primary' : 'bg-gray-200'}`} />

@@ -1,15 +1,38 @@
-import axios from 'axios';
+
+import axios, { AxiosError } from 'axios';
 
 const BASE_URL = 'https://eschool-1.onrender.com/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 120000, // Increased to 120s for slow backend cold starts
+  timeout: 120000, 
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
   },
+});
+
+// Production Retry Logic for Cold Starts
+api.interceptors.response.use(undefined, async (err: AxiosError) => {
+  const config = err.config as any;
+  
+  // If config does not exist or retry is not enabled, reject
+  if (!config || !config.retryCount) config.retryCount = 0;
+  
+  // Only retry on specific status codes (502, 503, 504) or timeout
+  const shouldRetry = (err.response?.status && [502, 503, 504].includes(err.response.status)) || err.code === 'ECONNABORTED';
+  
+  if (shouldRetry && config.retryCount < 3) {
+    config.retryCount += 1;
+    const delay = config.retryCount * 2000; // Exponential-ish delay: 2s, 4s, 6s
+    console.warn(`Production Server Wake-up: Retry attempt ${config.retryCount} in ${delay}ms...`);
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return api(config);
+  }
+
+  return Promise.reject(err);
 });
 
 api.interceptors.request.use((config) => {
@@ -36,13 +59,15 @@ api.interceptors.response.use(
     let errorMessage = 'A network error occurred. Please check your connection.';
     
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      errorMessage = 'The server is taking too long to respond (System wake-up in progress). Please refresh in 30 seconds.';
+      errorMessage = 'The system is taking a moment to initialize. Retrying connection...';
     } else if (error.response?.data) {
       const data = error.response.data;
       if (typeof data === 'string') {
         errorMessage = data;
       } else if (data.message) {
         errorMessage = data.message;
+      } else if (data.error) {
+        errorMessage = data.error;
       }
     }
 

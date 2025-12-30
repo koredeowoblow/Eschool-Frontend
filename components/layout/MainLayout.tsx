@@ -1,11 +1,17 @@
+
 import React, { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import Breadcrumbs from '../common/Breadcrumbs';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  
+  // Use page title service
+  usePageTitle();
 
   // Close sidebar on route change for mobile
   useEffect(() => {
@@ -24,6 +30,7 @@ const MainLayout: React.FC = () => {
         
         <main className="p-4 md:p-8">
           <div className="max-w-7xl mx-auto min-h-[70vh]">
+            <Breadcrumbs />
             <Suspense fallback={
               <div className="w-full space-y-6 animate-pulse">
                 <div className="h-40 bg-gray-200/50 rounded-3xl w-full"></div>
@@ -45,7 +52,7 @@ const MainLayout: React.FC = () => {
            <div className="flex flex-col items-center gap-2">
              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xs grayscale mb-2 opacity-50">eS</div>
              <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">
-               &copy; 2024 eSchool Premium ERP &bull; Production Stable v2.5.0
+               &copy; 2024 eSchool Premium ERP &bull; Production Gold v2.6.1
              </p>
            </div>
         </footer>

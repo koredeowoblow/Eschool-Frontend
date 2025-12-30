@@ -1,55 +1,135 @@
 
-import React from 'react';
-import { Receipt, Search, Filter, ArrowDownToLine } from 'lucide-react';
+import React, { useState } from 'react';
+import { Receipt, Search, Filter, ArrowDownToLine, Download, Loader2, Inbox, MoreVertical, CheckCircle2, ShieldCheck } from 'lucide-react';
+import api from '../services/api';
+import { useDataTable } from '../hooks/useDataTable';
+import { DataTable } from '../components/common/DataTable';
+import { useNotification } from '../context/NotificationContext';
+
+const fetchPaymentsApi = async ({ page, search, filters }: any) => {
+  const response = await api.get('/payments', { params: { page, search, ...filters } });
+  return response.data;
+};
 
 const Payments: React.FC = () => {
+  const { data, isLoading, search, setSearch, refresh } = useDataTable(fetchPaymentsApi);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const { showNotification } = useNotification();
+
+  const handleDownloadReceipt = async (id: string) => {
+    setDownloadingId(id);
+    try {
+      const response = await api.get(`/payments/${id}/receipt`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `receipt-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Receipt generation failed", err);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleVerify = async (id: string) => {
+    setVerifyingId(id);
+    try {
+      // POST api/v1/payments/{id}/verify
+      await api.post(`/payments/${id}/verify`);
+      showNotification("Payment reference verified and locked.", 'success');
+      refresh();
+    } catch (err: any) {
+      showNotification(err.message || "Verification protocol failed.", 'error');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const columns = [
+    { 
+      header: 'Receipt #', 
+      key: 'id',
+      render: (p: any) => (
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${p.is_verified ? 'bg-green-50 text-green-600 border-green-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
+            <CheckCircle2 size={16} />
+          </div>
+          <span className="font-black text-brand-primary">{p.receipt_number || `RCP-${p.id}`}</span>
+        </div>
+      )
+    },
+    { 
+      header: 'Student Identity', 
+      key: 'student_name',
+      render: (p: any) => (
+        <div>
+          <p className="text-sm font-bold text-gray-800">{p.student_name}</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">{p.class_name || 'Individual Pay'}</p>
+        </div>
+      )
+    },
+    { header: 'Lump Sum', key: 'amount', render: (p: any) => <span className="font-black text-gray-800">${p.amount?.toLocaleString()}</span> },
+    { header: 'Channel', key: 'method', className: 'text-xs font-bold text-gray-500 capitalize' },
+    { 
+      header: 'Audit Status', 
+      key: 'is_verified',
+      render: (p: any) => (
+        <span className={`text-[9px] font-black uppercase tracking-widest ${p.is_verified ? 'text-green-600' : 'text-orange-500'}`}>
+          {p.is_verified ? 'Verified' : 'Pending Audit'}
+        </span>
+      )
+    },
+    {
+      header: 'Actions',
+      key: 'actions',
+      className: 'text-right',
+      render: (p: any) => (
+        <div className="flex items-center justify-end gap-2">
+          {!p.is_verified && (
+             <button 
+              onClick={() => handleVerify(p.id)}
+              disabled={verifyingId === p.id}
+              className="p-2 text-brand-primary hover:bg-blue-50 rounded-xl transition-all"
+              title="Verify Transaction"
+            >
+              {verifyingId === p.id ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={18} />}
+            </button>
+          )}
+          <button 
+            onClick={() => handleDownloadReceipt(p.id)}
+            disabled={downloadingId === p.id}
+            className="p-2 text-gray-400 hover:text-brand-primary rounded-xl transition-all"
+            title="Download PDF"
+          >
+            {downloadingId === p.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={18} />}
+          </button>
+          <button className="p-2 text-gray-300 hover:bg-gray-50 rounded-xl transition-all"><MoreVertical size={18}/></button>
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Transaction History</h2>
-        <div className="flex gap-2">
-           <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 text-gray-600 rounded-xl text-sm font-bold shadow-sm">
-            <Filter size={18} /> Filter
-          </button>
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-gray-800 text-white rounded-xl text-sm font-bold shadow-lg">
-            <ArrowDownToLine size={18} /> Export CSV
-          </button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
+          <input 
+            type="text" placeholder="Search payment references..." value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold shadow-sm outline-none focus:border-brand-primary transition-all"
+          />
         </div>
+        <button className="flex items-center gap-2 px-6 py-3.5 bg-gray-800 text-white rounded-2xl text-sm font-bold shadow-lg shadow-gray-800/20 hover:bg-black transition-all">
+          <ArrowDownToLine size={18} /> Export Settlement Log
+        </button>
       </div>
 
-      <div className="card-premium overflow-hidden border border-gray-100">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
-                <th className="px-6 py-4">Receipt #</th>
-                <th className="px-6 py-4">Student</th>
-                <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Method</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {[1, 2, 3, 4, 5].map(i => (
-                <tr key={i} className="hover:bg-gray-50/20 transition-colors">
-                  <td className="px-6 py-5 font-black text-brand-primary">RCP-00{i}</td>
-                  <td className="px-6 py-5">
-                    <p className="text-sm font-bold text-gray-800">John Doe</p>
-                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Grade 10A</p>
-                  </td>
-                  <td className="px-6 py-5 font-black text-gray-800">$1,200</td>
-                  <td className="px-6 py-5 text-xs font-bold text-gray-500">Card Payment</td>
-                  <td className="px-6 py-5 text-xs text-gray-400 font-bold">May 20, 2024</td>
-                  <td className="px-6 py-5 text-right">
-                    <span className="px-2 py-1 bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-widest rounded-full">Success</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable columns={columns} data={data} isLoading={isLoading} />
     </div>
   );
 };

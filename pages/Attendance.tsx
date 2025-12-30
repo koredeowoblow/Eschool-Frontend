@@ -1,15 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, Clock, Calendar, Search, Save, Loader2, Inbox, School } from 'lucide-react';
 import api from '../services/api';
 import { useSelectOptions } from '../hooks/useSelectOptions';
+import { useNotification } from '../context/NotificationContext';
 
 const Attendance: React.FC = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [attendance, setAttendance] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
+  const { showNotification } = useNotification();
 
   const { options: classOptions, isLoading: isLoadingClasses } = useSelectOptions('/classes');
 
@@ -24,7 +29,6 @@ const Attendance: React.FC = () => {
       const initial = Object.fromEntries(list.map((s: any) => [s.id, 'Present']));
       setAttendance(initial);
     } catch (err) {
-      console.error("Failed to load students for attendance", err);
       setStudents([]);
     } finally {
       setIsLoading(false);
@@ -37,8 +41,25 @@ const Attendance: React.FC = () => {
     }
   }, [selectedClass]);
 
-  const toggleStatus = (id: string, status: string) => {
-    setAttendance(prev => ({ ...prev, [id]: status }));
+  const handleSaveAttendance = async () => {
+    if (!selectedClass || students.length === 0) return;
+    setIsSaving(true);
+    try {
+      // Synchronized with Backend specialized workflow requirements: student_id[], status[], note[]
+      const payload = {
+        date,
+        class_id: selectedClass,
+        student_id: Object.keys(attendance),
+        status: Object.values(attendance),
+        note: Object.keys(attendance).map(id => notes[id] || '')
+      };
+      await api.post('/attendance', payload);
+      showNotification("Attendance register synchronized for selected class.", 'success');
+    } catch (err: any) {
+      showNotification(err.message || "Failed to sync attendance.", 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getStatusStyle = (id: string, status: string) => {
@@ -75,7 +96,6 @@ const Attendance: React.FC = () => {
               <option value="">Select Class</option>
               {classOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
-            {isLoadingClasses && <Loader2 className="absolute right-3 top-3 animate-spin text-brand-primary" size={14} />}
           </div>
           <div className="relative">
             <Calendar size={18} className="absolute left-3 top-2.5 text-gray-400 pointer-events-none" />
@@ -84,8 +104,13 @@ const Attendance: React.FC = () => {
               className="pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm font-semibold text-gray-700 outline-none ring-1 ring-gray-200 focus:ring-brand-primary transition-all"
             />
           </div>
-          <button className="flex items-center gap-2 px-6 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
-            <Save size={18} /> Save Register
+          <button 
+            onClick={handleSaveAttendance}
+            disabled={isSaving || !selectedClass}
+            className="flex items-center gap-2 px-6 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+          >
+            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Save Register
           </button>
         </div>
       </div>
@@ -103,7 +128,6 @@ const Attendance: React.FC = () => {
           {!isLoading && students.length > 0 && (
             <div className="flex gap-4">
                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div><span className="text-[10px] font-black text-gray-400 uppercase">Present: {Object.values(attendance).filter(v => v === 'Present').length}</span></div>
-               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-[10px] font-black text-gray-400 uppercase">Absent: {Object.values(attendance).filter(v => v === 'Absent').length}</span></div>
             </div>
           )}
         </div>
@@ -133,6 +157,7 @@ const Attendance: React.FC = () => {
                   <th className="px-6 py-4 w-20">Status</th>
                   <th className="px-6 py-4">Student Identity</th>
                   <th className="px-6 py-4 text-center">Marking Action</th>
+                  <th className="px-6 py-4">Internal Note</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -145,22 +170,23 @@ const Attendance: React.FC = () => {
                       }`}></div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 font-bold overflow-hidden border border-white shadow-sm">
-                          {student.avatar ? <img src={student.avatar} className="w-full h-full object-cover"/> : (student.full_name || student.name || '?')[0]}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">{student.full_name || student.name}</p>
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{student.admission_number || 'REG-STUDENT'}</p>
-                        </div>
+                      <p className="text-sm font-bold text-gray-800">{student.full_name || student.name}</p>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{student.admission_number}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => setAttendance({...attendance, [student.id]: 'Present'})} className={`p-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Present')}`}>Present</button>
+                        <button onClick={() => setAttendance({...attendance, [student.id]: 'Late'})} className={`p-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Late')}`}>Late</button>
+                        <button onClick={() => setAttendance({...attendance, [student.id]: 'Absent'})} className={`p-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Absent')}`}>Absent</button>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => toggleStatus(student.id, 'Present')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Present')}`}><CheckCircle2 size={14} /> Present</button>
-                        <button onClick={() => toggleStatus(student.id, 'Late')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Late')}`}><Clock size={14} /> Late</button>
-                        <button onClick={() => toggleStatus(student.id, 'Absent')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${getStatusStyle(student.id, 'Absent')}`}><XCircle size={14} /> Absent</button>
-                      </div>
+                      <input 
+                        type="text" placeholder="Add remark..." 
+                        value={notes[student.id] || ''}
+                        onChange={e => setNotes({...notes, [student.id]: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-lg py-1.5 px-3 text-xs outline-none focus:ring-1 ring-brand-primary/20"
+                      />
                     </td>
                   </tr>
                 ))}

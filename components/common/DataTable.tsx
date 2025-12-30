@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Loader2, Inbox, Filter, X, ChevronDown } from 'lucide-react';
+import { Loader2, Inbox, Filter, X, ChevronDown, Download } from 'lucide-react';
 
 export interface FilterOption {
   label: string;
@@ -29,6 +30,7 @@ interface DataTableProps<T> {
   activeFilters?: Record<string, any>;
   onFilterChange?: (key: string, value: any) => void;
   onClearFilters?: () => void;
+  exportable?: boolean;
 }
 
 export function DataTable<T>({ 
@@ -39,55 +41,78 @@ export function DataTable<T>({
   filtersConfig,
   activeFilters = {},
   onFilterChange,
-  onClearFilters
+  onClearFilters,
+  exportable = true
 }: DataTableProps<T>) {
   const hasActiveFilters = Object.values(activeFilters).some(v => v !== '' && v !== undefined && v !== null);
   const isValidData = Array.isArray(data);
 
+  const handleExport = () => {
+    if (!data.length) return;
+    const headers = columns.map(c => c.header).join(',');
+    const rows = data.map(item => 
+      columns.map(c => {
+        const val = (item as any)[c.key];
+        return typeof val === 'object' ? JSON.stringify(val) : String(val);
+      }).join(',')
+    );
+    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "eschool_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div className="card-premium overflow-hidden border border-gray-100 flex flex-col">
-      {filtersConfig && filtersConfig.length > 0 && (
-        <div className="p-4 bg-gray-50/30 border-b border-gray-50 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2 text-gray-400 mr-2">
-            <Filter size={16} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Filters</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 flex-1">
-            {filtersConfig.map((filter) => (
-              <div key={filter.key} className="relative">
-                {filter.type === 'select' ? (
-                  <div className="relative group">
-                    <select
+      <div className="p-4 bg-gray-50/30 border-b border-gray-50 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4 flex-1">
+          {filtersConfig && filtersConfig.length > 0 && (
+            <div className="flex items-center gap-3">
+              {filtersConfig.map((filter) => (
+                <div key={filter.key} className="relative">
+                  {filter.type === 'select' ? (
+                    <div className="relative group">
+                      <select
+                        value={activeFilters[filter.key] || ''}
+                        onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
+                        className="appearance-none pl-4 pr-10 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:border-brand-primary transition-all cursor-pointer min-w-[140px]"
+                      >
+                        <option value="">{filter.label}</option>
+                        {filter.options?.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" />
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder={filter.label}
                       value={activeFilters[filter.key] || ''}
                       onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-                      className="appearance-none pl-4 pr-10 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:border-brand-primary transition-all cursor-pointer min-w-[140px]"
-                    >
-                      <option value="">{filter.label}</option>
-                      {filter.options?.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" />
-                  </div>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder={filter.label}
-                    value={activeFilters[filter.key] || ''}
-                    onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-                    className="pl-4 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:border-brand-primary transition-all min-w-[160px]"
-                  />
-                )}
-              </div>
-            ))}
-            {hasActiveFilters && onClearFilters && (
-              <button onClick={onClearFilters} className="flex items-center gap-1.5 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                <X size={14} /> Clear All
-              </button>
-            )}
-          </div>
+                      className="pl-4 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-700 outline-none focus:border-brand-primary transition-all min-w-[160px]"
+                    />
+                  )}
+                </div>
+              ))}
+              {hasActiveFilters && onClearFilters && (
+                <button onClick={onClearFilters} className="flex items-center gap-1.5 px-3 py-2 text-red-500 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                  <X size={14} /> Reset
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      )}
+        {exportable && data.length > 0 && (
+          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:text-brand-primary transition-all shadow-sm">
+            <Download size={14} /> Export CSV
+          </button>
+        )}
+      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left">
@@ -116,12 +141,7 @@ export function DataTable<T>({
                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
                       <Inbox size={32} strokeWidth={1.5} />
                     </div>
-                    <div className="space-y-1">
-                      <p className="font-bold text-gray-500">No records discovered</p>
-                      <p className="text-xs font-medium max-w-[200px] mx-auto text-gray-400">
-                        {hasActiveFilters ? "Try adjusting your filters." : "This directory is currently empty."}
-                      </p>
-                    </div>
+                    <p className="font-bold text-gray-500">No records discovered</p>
                   </div>
                 </td>
               </tr>

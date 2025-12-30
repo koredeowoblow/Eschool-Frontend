@@ -1,28 +1,33 @@
+
 import { useState } from 'react';
+import { useNotification } from '../context/NotificationContext';
 
 interface FormSubmitOptions {
   onSuccess?: (data: any) => void;
   onError?: (error: any) => void;
+  successMessage?: string;
 }
 
 export function useFormSubmit(submitFn: (data: any) => Promise<any>, options?: FormSubmitOptions) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const { showNotification } = useNotification();
 
   const submit = async (formData: any) => {
     setIsSubmitting(true);
     setErrors({});
     try {
       const result = await submitFn(formData);
+      showNotification(options?.successMessage || "Operation completed successfully!", 'success');
       options?.onSuccess?.(result);
       return { success: true, data: result };
     } catch (error: any) {
-      // Handle Laravel 422 Validation Errors from the API interceptor
       const apiResponse = error.originalError?.response;
       if (apiResponse?.status === 422 && apiResponse.data?.errors) {
         setErrors(apiResponse.data.errors);
+        showNotification("Please check the form for validation errors.", 'error');
       } else {
-        console.error("Non-validation error caught in form submit:", error);
+        showNotification(error.message || "A system error occurred. Please try again.", 'error');
       }
       options?.onError?.(error);
       return { success: false, error };

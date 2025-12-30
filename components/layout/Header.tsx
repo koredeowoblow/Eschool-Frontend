@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
-import { Menu, Search, Bell, User as UserIcon, X, Clock, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, Search, Bell, User as UserIcon, X, Clock, CheckCircle2, Loader2, GraduationCap } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import api from '../../services/api';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -11,13 +12,47 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/') return 'Overview';
     const name = path.substring(1).charAt(0).toUpperCase() + path.slice(2);
-    return name.split('/')[0];
+    return name.split('/')[0].replace(/-/g, ' ');
   };
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.length > 1) {
+        setIsSearching(true);
+        try {
+          const res = await api.get('/students', { params: { search: searchQuery, per_page: 5 } });
+          setSearchResults(res.data.data || []);
+        } catch (e) {
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setSearchResults([]);
+        setSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const notifications = [
     { id: 1, title: 'New Assignment', text: 'Math 101 quiz posted.', time: '2m ago', icon: Clock, color: 'text-blue-500' },
@@ -33,17 +68,37 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         >
           <Menu size={24} />
         </button>
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{getPageTitle()}</h1>
+        <h1 className="text-2xl font-bold text-gray-800 tracking-tight capitalize">{getPageTitle()}</h1>
       </div>
 
       <div className="flex items-center gap-3 md:gap-6">
-        <div className="hidden md:flex items-center gap-2 bg-gray-100/80 px-4 py-2 rounded-full border border-transparent focus-within:border-brand-primary transition-all">
-          <Search size={18} className="text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Search anything..." 
-            className="bg-transparent border-none outline-none text-sm w-48 lg:w-64 font-medium"
-          />
+        <div ref={searchRef} className="hidden md:block relative">
+          <div className="flex items-center gap-2 bg-gray-100/80 px-4 py-2 rounded-full border border-transparent focus-within:border-brand-primary transition-all">
+            <Search size={18} className="text-gray-400" />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Jump to student record..." 
+              className="bg-transparent border-none outline-none text-sm w-48 lg:w-64 font-medium"
+            />
+            {isSearching && <Loader2 size={14} className="animate-spin text-brand-primary" />}
+          </div>
+          
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+              {searchResults.map(s => (
+                <button 
+                  key={s.id} 
+                  onClick={() => { navigate(`/students/${s.id}`); setSearchResults([]); setSearchQuery(''); }}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-brand-primary flex items-center justify-center"><GraduationCap size={16}/></div>
+                  <div><p className="text-xs font-bold text-gray-800">{s.full_name}</p><p className="text-[10px] text-gray-400 uppercase font-black">{s.admission_number}</p></div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 relative">
@@ -75,7 +130,6 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   </div>
                 ))}
               </div>
-              <button className="w-full py-3 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-brand-primary hover:bg-gray-100 transition-colors">View All Alerts</button>
             </div>
           )}
 

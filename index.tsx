@@ -1,7 +1,9 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { NotificationProvider } from './context/NotificationContext';
 
 // Disable console logs in production for security and performance
 if (window.location.hostname !== 'localhost') {
@@ -19,7 +21,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

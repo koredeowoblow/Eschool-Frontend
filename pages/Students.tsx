@@ -1,12 +1,14 @@
+
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Eye, Loader2, User, School, Calendar, Mail } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Eye, Loader2, User, School, Calendar, Mail, UserPlus, ShieldCheck, Lock, SearchIcon } from 'lucide-react';
 import { Student } from '../types';
 import { useDataTable } from '../hooks/useDataTable';
-import { DataTable, FilterConfig } from '../components/common/DataTable';
+import { DataTable } from '../components/common/DataTable';
 import { useSelectOptions } from '../hooks/useSelectOptions';
 import { useFormSubmit } from '../hooks/useFormSubmit';
 import Modal from '../components/common/Modal';
+import UserAvatar from '../components/common/UserAvatar';
 import api from '../services/api';
 
 const fetchStudentsApi = async ({ page, search, filters }: { page: number, search: string, filters?: any }) => {
@@ -19,52 +21,50 @@ const fetchStudentsApi = async ({ page, search, filters }: { page: number, searc
 const Students: React.FC = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeFormTab, setActiveFormTab] = useState<'basic' | 'academic' | 'guardian'>('basic');
+  const [guardianMode, setGuardianMode] = useState<'create' | 'lookup'>('create');
   
-  const { 
-    data, isLoading, search, setSearch, page, setPage, lastPage, filters, setFilters, refresh 
-  } = useDataTable<Student>(fetchStudentsApi as any);
-
-  const { options: classOptions, isLoading: isLoadingClasses } = useSelectOptions('/classes');
+  const { data, isLoading, search, setSearch, refresh } = useDataTable<Student>(fetchStudentsApi as any);
+  const { options: classOptions } = useSelectOptions('/classes');
+  const { options: sectionOptions } = useSelectOptions('/sections');
+  const { options: sessionOptions } = useSelectOptions('/school-sessions');
+  const { options: termOptions } = useSelectOptions('/terms');
+  const { options: guardianOptions } = useSelectOptions('/guardians');
 
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    class_room_id: '',
+    name: '',
+    email: '',
     gender: 'male',
-    dob: '',
-    email: ''
+    date_of_birth: '',
+    admission_number: '',
+    admission_date: new Date().toISOString().split('T')[0],
+    class_id: '',
+    section_id: '',
+    school_session_id: '',
+    term_id: '',
+    password: 'password123',
+    guardian_id: '',
+    guardian: {
+      name: '',
+      email: '',
+      phone: '',
+      relation: 'Father',
+      occupation: '',
+      password: 'password123'
+    }
   });
 
-  const { submit, isSubmitting, errors } = useFormSubmit(
+  const { submit, isSubmitting } = useFormSubmit(
     (data) => api.post('/students', data),
     {
+      successMessage: "Institutional record and data-links successfully synchronized.",
       onSuccess: () => {
         setIsModalOpen(false);
         refresh();
-        setFormData({ first_name: '', last_name: '', class_room_id: '', gender: 'male', dob: '', email: '' });
+        setActiveFormTab('basic');
       }
     }
   );
-
-  const filtersConfig: FilterConfig[] = useMemo(() => [
-    {
-      key: 'status',
-      label: 'Status',
-      type: 'select',
-      options: [{ label: 'Active', value: '1' }, { label: 'Inactive', value: '0' }]
-    },
-    {
-      key: 'gender',
-      label: 'Gender',
-      type: 'select',
-      options: [{ label: 'Male', value: 'male' }, { label: 'Female', value: 'female' }]
-    }
-  ], []);
-
-  const handleFilterChange = (key: string, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPage(1);
-  };
 
   const columns = [
     { 
@@ -72,33 +72,26 @@ const Students: React.FC = () => {
       key: 'full_name',
       render: (s: Student) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-100 rounded-xl overflow-hidden shadow-sm border border-white">
-             {s.avatar ? <img src={s.avatar} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full text-gray-400 font-bold">{s.full_name[0]}</div>}
-          </div>
+          <UserAvatar src={s.avatar} name={s.full_name} />
           <span className="font-bold text-gray-800 tracking-tight">{s.full_name}</span>
         </div>
       )
     },
-    { header: 'Admission No', key: 'admission_number', className: 'text-sm text-gray-400 font-black uppercase tracking-tighter' },
+    { header: 'Admission No', key: 'admission_number', className: 'text-sm text-gray-400 font-black uppercase' },
     { 
       header: 'Class', 
       key: 'class_room',
       render: (s: Student) => (
-        <span className="px-3 py-1 bg-blue-50 text-brand-primary text-[10px] font-black rounded-lg uppercase tracking-widest">
+        <span className="px-3 py-1 bg-blue-50 text-brand-primary text-[10px] font-black rounded-lg uppercase">
           {s.class_room?.name || 'Unassigned'}
         </span>
       )
     },
     { 
-      header: 'Gender', 
-      key: 'gender',
-      render: (s: Student) => <span className="text-sm text-gray-500 font-medium capitalize">{s.user?.gender || 'N/A'}</span>
-    },
-    { 
       header: 'Status', 
       key: 'status',
       render: (s: Student) => (
-        <span className={`px-2 py-1 text-[9px] font-black rounded-full uppercase tracking-widest ${
+        <span className={`px-2 py-1 text-[9px] font-black rounded-full uppercase ${
           s.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
         }`}>
           {s.status ? 'Active' : 'Inactive'}
@@ -113,7 +106,6 @@ const Students: React.FC = () => {
         <div className="flex items-center justify-end gap-1">
           <button onClick={(e) => { e.stopPropagation(); navigate(`/students/${s.id}`); }} className="p-2 text-gray-400 hover:text-brand-primary rounded-lg transition-colors"><Eye size={18} /></button>
           <button className="p-2 text-gray-400 hover:text-brand-primary rounded-lg transition-colors"><Edit2 size={18} /></button>
-          <button className="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors"><Trash2 size={18} /></button>
         </div>
       )
     }
@@ -125,90 +117,139 @@ const Students: React.FC = () => {
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
           <input 
-            type="text" 
-            placeholder="Search students directory..." 
-            value={search}
+            type="text" placeholder="Search registry..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-semibold outline-none focus:border-brand-primary shadow-sm transition-all"
+            className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-semibold outline-none focus:border-brand-primary shadow-sm"
           />
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
+        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
           <Plus size={18} /> Register Student
         </button>
       </div>
 
-      <DataTable 
-        columns={columns} data={data} isLoading={isLoading} 
-        filtersConfig={filtersConfig} activeFilters={filters}
-        onFilterChange={handleFilterChange} onClearFilters={() => setFilters({})}
-        onRowClick={(s) => navigate(`/students/${s.id}`)}
-      />
+      <DataTable columns={columns} data={data} isLoading={isLoading} onRowClick={(s) => navigate(`/students/${s.id}`)} />
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Student Enrollment">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Enrollment Protocol">
+        <div className="flex gap-1 mb-6 border-b border-gray-50 pb-4">
+           {(['basic', 'academic', 'guardian'] as const).map((t) => (
+             <button 
+               key={t} onClick={() => setActiveFormTab(t)}
+               className={`flex-1 py-2 text-[9px] font-black uppercase tracking-[0.2em] rounded-lg transition-all ${activeFormTab === t ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50'}`}
+             >
+               {t}
+             </button>
+           ))}
+        </div>
+
         <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">First Name</label>
-              <input 
-                required type="text" value={formData.first_name}
-                onChange={e => setFormData({...formData, first_name: e.target.value})}
-                className={`w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-brand-primary font-bold ${errors.first_name ? 'border-red-400' : 'border-gray-100'}`} 
-              />
-              {errors.first_name && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.first_name[0]}</p>}
+          {activeFormTab === 'basic' && (
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Identity (Full Name)</label>
+                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Gender</label>
+                  <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Birth Date</label>
+                  <input required type="date" value={formData.date_of_birth} onChange={e => setFormData({...formData, date_of_birth: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Default Access Token</label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
+                  <input required type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                </div>
+              </div>
+              <button type="button" onClick={() => setActiveFormTab('academic')} className="w-full py-4 bg-gray-800 text-white rounded-xl font-black uppercase tracking-widest">Next: Academic Data</button>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Last Name</label>
-              <input 
-                required type="text" value={formData.last_name}
-                onChange={e => setFormData({...formData, last_name: e.target.value})}
-                className={`w-full p-3 bg-gray-50 border rounded-xl outline-none focus:border-brand-primary font-bold ${errors.last_name ? 'border-red-400' : 'border-gray-100'}`} 
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assigned Class</label>
-            <div className="relative">
-              <select 
-                required value={formData.class_room_id}
-                onChange={e => setFormData({...formData, class_room_id: e.target.value})}
-                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold appearance-none"
-              >
-                <option value="">Select Class</option>
-                {classOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-              </select>
-              {isLoadingClasses && <Loader2 className="absolute right-4 top-3.5 animate-spin text-gray-400" size={16} />}
+          {activeFormTab === 'academic' && (
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Admission No</label>
+                  <input required type="text" value={formData.admission_number} onChange={e => setFormData({...formData, admission_number: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Admission Date</label>
+                  <input required type="date" value={formData.admission_date} onChange={e => setFormData({...formData, admission_date: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Current Class</label>
+                  <select required value={formData.class_id} onChange={e => setFormData({...formData, class_id: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                    <option value="">Select Level</option>
+                    {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Section</label>
+                  <select required value={formData.section_id} onChange={e => setFormData({...formData, section_id: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                    <option value="">Select Wing</option>
+                    {sectionOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button type="button" onClick={() => setActiveFormTab('guardian')} className="w-full py-4 bg-gray-800 text-white rounded-xl font-black uppercase tracking-widest">Next: Guardian Mapping</button>
             </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Gender</label>
-              <select 
-                value={formData.gender}
-                onChange={e => setFormData({...formData, gender: e.target.value})}
-                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold"
-              >
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Date of Birth</label>
-              <input 
-                required type="date" value={formData.dob}
-                onChange={e => setFormData({...formData, dob: e.target.value})}
-                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold" 
-              />
-            </div>
-          </div>
+          {activeFormTab === 'guardian' && (
+            <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+               <div className="flex bg-gray-100 p-1 rounded-xl">
+                 <button type="button" onClick={() => setGuardianMode('create')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${guardianMode === 'create' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400'}`}>Create New</button>
+                 <button type="button" onClick={() => setGuardianMode('lookup')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${guardianMode === 'lookup' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400'}`}>Existing Search</button>
+               </div>
 
-          <button 
-            type="submit" disabled={isSubmitting}
-            className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "Finalize Enrollment"}
-          </button>
+               {guardianMode === 'lookup' ? (
+                 <div className="space-y-1 py-4">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Select Registered Guardian</label>
+                    <div className="relative">
+                      <SearchIcon size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
+                      <select required={guardianMode === 'lookup'} value={formData.guardian_id} onChange={e => setFormData({...formData, guardian_id: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold appearance-none">
+                         <option value="">Lookup Registry...</option>
+                         {guardianOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
+                 </div>
+               ) : (
+                 <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Parent Identity</label>
+                      <input required={guardianMode === 'create'} type="text" value={formData.guardian.name} onChange={e => setFormData({...formData, guardian: {...formData.guardian, name: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Relation</label>
+                        <select value={formData.guardian.relation} onChange={e => setFormData({...formData, guardian: {...formData.guardian, relation: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                          <option value="Father">Father</option>
+                          <option value="Mother">Mother</option>
+                          <option value="Legal Guardian">Legal Guardian</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email</label>
+                        <input required={guardianMode === 'create'} type="email" value={formData.guardian.email} onChange={e => setFormData({...formData, guardian: {...formData.guardian, email: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                      </div>
+                    </div>
+                 </div>
+               )}
+              
+              <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2">
+                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><UserPlus size={18}/> Commit Registration</>}
+              </button>
+            </div>
+          )}
         </form>
       </Modal>
     </div>

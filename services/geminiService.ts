@@ -1,7 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize the GoogleGenAI client strictly using process.env.API_KEY as per guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getAcademicAdvice = async (query: string) => {
@@ -14,10 +13,18 @@ export const getAcademicAdvice = async (query: string) => {
         temperature: 0.7,
       },
     });
-    // Correctly extracting text using the .text property from GenerateContentResponse.
+
+    if (!response || !response.text) {
+      console.warn("Gemini API returned an empty or malformed response.");
+      return "I was unable to analyze that data. Please try again with more context.";
+    }
+
     return response.text;
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    return "I'm sorry, I'm having trouble connecting to the AI assistant right now.";
+  } catch (error: any) {
+    console.error("Gemini API Fatal Error:", error);
+    if (error.status === 429) {
+      return "The AI engine is currently reaching capacity. Please wait a few moments and try again.";
+    }
+    return "I'm sorry, I encountered a technical issue while processing your request.";
   }
 };

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface FetchParams {
   page: number;
@@ -20,50 +21,56 @@ export function useDataTable<T>(fetchFn: (params: FetchParams) => Promise<ApiRes
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, any>>({});
+  
+  // Use ref to track active request and prevent race conditions
+  const requestCountRef = useRef(0);
 
   const loadData = useCallback(async () => {
+    const currentRequestId = ++requestCountRef.current;
     setIsLoading(true);
+    
     try {
       const result = await fetchFn({ page, search, filters });
       
+      // If a newer request has started, ignore this result
+      if (currentRequestId !== requestCountRef.current) return;
+
       let extractedData: T[] = [];
       let meta: any = null;
 
-      // Case 1: Result is the standardized envelope { data: { data: [] } }
-      if (result?.data && Array.isArray(result.data.data)) {
-        extractedData = result.data.data;
-        meta = result.data.meta || result.meta;
-      } 
-      // Case 2: Result is { data: [] }
-      else if (Array.isArray(result?.data)) {
-        extractedData = result.data;
-        meta = result.meta;
-      }
-      // Case 3: Result is the array itself
-      else if (Array.isArray(result)) {
-        extractedData = result as unknown as T[];
-      }
-      // Case 4: Deep nesting or direct data property
-      else if (result && (result as any).data && Array.isArray((result as any).data)) {
-        extractedData = (result as any).data;
-        meta = (result as any).meta;
+      // Handle varied Laravel Response Shapes
+      if (result) {
+        if (result.data && Array.isArray(result.data.data)) {
+          extractedData = result.data.data;
+          meta = result.data.meta || result.data;
+        } else if (Array.isArray(result.data)) {
+          extractedData = result.data;
+          meta = result.meta;
+        } else if (Array.isArray(result)) {
+          extractedData = result as unknown as T[];
+        } else if ((result as any).data && Array.isArray((result as any).data)) {
+          extractedData = (result as any).data;
+        }
       }
 
-      // Final fallback to prevent .map issues
       setData(Array.isArray(extractedData) ? extractedData : []);
 
-      if (meta) {
-        setTotal(meta.total || extractedData.length);
-        setLastPage(meta.last_page || 1);
+      if (meta && typeof meta === 'object') {
+        setTotal(meta.total ?? extractedData.length);
+        setLastPage(meta.last_page ?? 1);
       } else {
         setTotal(extractedData.length);
         setLastPage(1);
       }
     } catch (error) {
-      console.warn("Table data processing failed, defaulting to empty array:", error);
-      setData([]);
+      if (currentRequestId === requestCountRef.current) {
+        console.warn("Table data processing failed, defaulting to empty array:", error);
+        setData([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (currentRequestId === requestCountRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [page, search, JSON.stringify(filters), fetchFn]);
 

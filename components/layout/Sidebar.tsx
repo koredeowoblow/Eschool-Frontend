@@ -7,7 +7,7 @@ import {
   Clock, ShieldAlert, BarChart3, Heart, Library as LibraryIcon, ArrowUpCircle,
   History, Layers, Calendar, Calculator, ListChecks, Wallet, Receipt,
   Lock, UserCheck, Package, Cpu, LucideIcon, Megaphone, CheckSquare, 
-  FolderSearch, School
+  FolderSearch, School, Globe, Paperclip, UserPlus
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
@@ -33,59 +33,72 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
     if (user?.role === UserRole.SUPER_ADMIN) {
       items.push(
-        { label: 'Schools', icon: ShieldAlert, path: '/super-admin' },
+        { label: 'Platform Engine', icon: ShieldAlert, path: '/super-admin', isHeader: true },
+        { label: 'Schools', icon: School, path: '/super-admin' },
+        { label: 'Users', icon: Globe, path: '/global-users' },
+        { label: 'Payments', icon: CreditCard, path: '/payments' },
         { label: 'Plans', icon: Package, path: '/plans' },
-        { label: 'System Jobs', icon: Cpu, path: '/system-jobs' },
+        { label: 'System Settings', icon: Settings, path: '/settings' },
+        { label: 'Jobs', icon: Cpu, path: '/system-jobs' },
         { label: 'Audit Logs', icon: History, path: '/audit-logs' }
       );
+      return items;
     }
 
     if (user?.role === UserRole.GUARDIAN) {
-      items.push({ label: 'My Children', icon: Heart, path: '/guardian-portal' });
+      items.push(
+        { label: 'Guardian Portal', icon: Heart, path: '/guardian-portal', isHeader: true },
+        { label: 'My Children', icon: Heart, path: '/guardian-portal' },
+        { label: 'Communications', icon: MessageSquare, path: '/communication' },
+        { label: 'Timetables', icon: Clock, path: '/timetables' },
+        { label: 'Library', icon: LibraryIcon, path: '/library' },
+        { label: 'Settings', icon: Settings, path: '/profile' }
+      );
+      return items;
     }
 
     if ([UserRole.SCHOOL_ADMIN, UserRole.TEACHER].includes(user?.role as UserRole)) {
       items.push(
+        { label: 'Institutional Registry', icon: Users, path: '/students', isHeader: true },
         { label: 'Students', icon: GraduationCap, path: '/students' },
+        { label: 'Promotions', icon: ArrowUpCircle, path: '/promotions' },
         { label: 'Teachers', icon: Users, path: '/teachers' },
-        { label: 'Non-Academic Staff', icon: Users, path: '/staff' },
         { label: 'Guardians', icon: UserCheck, path: '/guardians' }
       );
-    }
 
-    items.push(
-      { label: 'Academic Hierarchy', icon: Layers, path: '/sections', isHeader: true },
-      { label: 'Classes', icon: School, path: '/classes' },
-      { label: 'Sections', icon: Layers, path: '/sections' },
-      { label: 'Sessions & Terms', icon: Calendar, path: '/academic-sessions' },
-      { label: 'Subjects', icon: BookOpen, path: '/subjects' },
-      
-      { label: 'LMS & Performance', icon: GraduationCap, path: '/attendance', isHeader: true },
-      { label: 'Noticeboard', icon: Megaphone, path: '/noticeboard' },
-      { label: 'Attendance', icon: CalendarCheck, path: '/attendance' },
-      { label: 'Timetables', icon: Clock, path: '/timetables' },
-      { label: 'Lesson Notes', icon: FileText, path: '/lesson-notes' },
-      { label: 'Assignments', icon: ClipboardList, path: '/assignments' },
-      { label: 'Submissions', icon: CheckSquare, path: '/assignments/submissions' },
-      { label: 'Assessments', icon: ListChecks, path: '/assessments' },
-      { label: 'Results', icon: Trophy, path: '/results' },
-      { label: 'Grading Scales', icon: Calculator, path: '/grading-scales' },
-      { label: 'Promotions', icon: ArrowUpCircle, path: '/promotions' },
-      
-      { label: 'Finance & Tools', icon: CreditCard, path: '/finance', isHeader: true },
-      { label: 'Finance Overview', icon: CreditCard, path: '/finance' },
-      { label: 'Fee Structures', icon: Wallet, path: '/fee-structures' },
-      { label: 'Invoices', icon: Receipt, path: '/invoices' },
-      { label: 'Payments', icon: Receipt, path: '/payments' },
-      { label: 'Library', icon: LibraryIcon, path: '/library' },
-      { label: 'Files & Media', icon: FolderSearch, path: '/files' },
-      { label: 'Reports', icon: BarChart3, path: '/reports' },
-      { label: 'Communication', icon: MessageSquare, path: '/communication' },
-      
-      { label: 'Configuration', icon: Settings, path: '/settings', isHeader: true },
-      { label: 'User Roles', icon: Lock, path: '/roles-permissions' },
-      { label: 'Settings', icon: Settings, path: '/settings' }
-    );
+      items.push(
+        { label: 'Academic Framework', icon: Layers, path: '/classes', isHeader: true },
+        { label: 'Classes', icon: School, path: '/classes' },
+        { label: 'Sections', icon: Layers, path: '/sections' },
+        { label: 'Subjects', icon: BookOpen, path: '/subjects' },
+        { label: 'Subject Assignments', icon: UserPlus, path: '/subject-assignments' },
+        { label: 'Sessions & Terms', icon: Calendar, path: '/academic-sessions' },
+        { label: 'Enrollments', icon: ClipboardList, path: '/enrollments' }
+      );
+
+      items.push(
+        { label: 'Learning Management', icon: ClipboardList, path: '/lesson-notes', isHeader: true },
+        { label: 'Lesson Notes', icon: FileText, path: '/lesson-notes' },
+        { label: 'Assignments', icon: ClipboardList, path: '/assignments' },
+        { label: 'Attendance', icon: CalendarCheck, path: '/attendance' },
+        { label: 'Attachments', icon: Paperclip, path: '/attachments' },
+        { label: 'Assessments', icon: ListChecks, path: '/assessments' },
+        { label: 'Results', icon: Trophy, path: '/results' },
+        { label: 'Timetables', icon: Clock, path: '/timetables' },
+        { label: 'Reports', icon: BarChart3, path: '/reports' }
+      );
+
+      items.push(
+        { label: 'Administration & Finance', icon: CreditCard, path: '/finance', isHeader: true },
+        { label: 'Finance Overview', icon: CreditCard, path: '/finance' },
+        { label: 'Fees & Structures', icon: Wallet, path: '/fees' },
+        { label: 'Invoices', icon: Receipt, path: '/invoices' },
+        { label: 'Payments', icon: CreditCard, path: '/payments' },
+        { label: 'Library', icon: LibraryIcon, path: '/library' },
+        { label: 'Audit Logs', icon: History, path: '/audit-logs' },
+        { label: 'Roles & Permissions', icon: Lock, path: '/roles-permissions' }
+      );
+    }
 
     return items;
   };
