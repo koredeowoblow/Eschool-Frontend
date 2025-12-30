@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Eye, Loader2, User, School, Calendar, Mail, UserPlus, ShieldCheck, Lock, SearchIcon, Activity, Users, UserMinus } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Eye, Loader2, User, School, Calendar, Mail, UserPlus, ShieldCheck, Lock, Activity, Users, UserMinus } from 'lucide-react';
 import { Student } from '../types';
 import { useDataTable } from '../hooks/useDataTable';
 import { DataTable } from '../components/common/DataTable';
@@ -122,7 +122,6 @@ const Students: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Stats Row Required by Specification */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard label="Total Students" value={stats?.total_students || 0} icon={Users} color="bg-brand-primary" />
         <StatsCard label="Active" value={stats?.active_students || 0} icon={Activity} color="bg-green-600" />
@@ -235,7 +234,7 @@ const Students: React.FC = () => {
                  <div className="space-y-1 py-4">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Select Registered Guardian</label>
                     <div className="relative">
-                      <SearchIcon size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
+                      <Search size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
                       <select required={assignExistingGuardian} value={formData.guardian_id} onChange={e => setFormData({...formData, guardian_id: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold appearance-none">
                          <option value="">Lookup Registry...</option>
                          {guardianOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

@@ -37,23 +37,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
     // Common Items
     items.push(
-      { id: 'h-common', label: 'Main Menu', icon: Zap, path: '#', isHeader: true },
+      { id: 'h-common', label: 'Main Registry', icon: Zap, path: '#', isHeader: true },
       { id: 'dash', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-      { id: 'chats', label: 'Internal Comms', icon: MessageSquare, path: '/communication' }
+      { id: 'chats', label: 'Communication Hub', icon: MessageSquare, path: '/communication' }
     );
 
     // Super Admin Section
     if (hasRole('super_admin')) {
       items.push(
         { id: 'h-super', label: 'Platform Engine', icon: ShieldAlert, path: '#', isHeader: true },
-        { id: 'schools', label: 'Schools', icon: School, path: '/super-admin' },
-        { id: 'global-users', label: 'Global Users', icon: Globe, path: '/global-users' },
-        { id: 'plans', label: 'Membership Plans', icon: Package, path: '/plans' },
-        { id: 'platform-payments', label: 'Platform Payments', icon: CreditCard, path: '/payments' },
-        { id: 'sys-settings', label: 'System Settings', icon: Settings, path: '/settings' },
-        { id: 'audit-logs', label: 'Audit Logs', icon: History, path: '/audit-logs' },
-        { id: 'system-jobs', label: 'System Jobs', icon: Cpu, path: '/system-jobs' },
-        { id: 'rbac', label: 'Role Management', icon: Lock, path: '/roles-permissions' }
+        { id: 'schools', label: 'Institution Registry', icon: School, path: '/super-admin' },
+        { id: 'global-users', label: 'Global Accounts', icon: Globe, path: '/global-users' },
+        { id: 'plans', label: 'Membership Tiers', icon: Package, path: '/plans' },
+        { id: 'audit-logs', label: 'Security Audit', icon: History, path: '/audit-logs' },
+        { id: 'system-jobs', label: 'Process Queue', icon: Cpu, path: '/system-jobs' },
+        { id: 'rbac', label: 'Role Authority', icon: Lock, path: '/roles-permissions' }
       );
     }
 
@@ -62,77 +60,60 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       items.push(
         { id: 'h-academic', label: 'Academic Framework', icon: Layers, path: '#', isHeader: true },
         { id: 'sessions', label: 'Sessions & Terms', icon: CalendarIcon, path: '/academic-sessions' },
-        { id: 'sections', label: 'Divisions / Sections', icon: Layers, path: '/sections' },
-        { id: 'classes', label: 'Class Rooms', icon: School, path: '/classes' },
-        { id: 'subjects', label: 'Subject Manager', icon: BookOpen, path: '/subjects' },
+        { id: 'sections', label: 'Divisions / Units', icon: Layers, path: '/sections' },
+        { id: 'classes', label: 'Class Inventory', icon: School, path: '/classes' },
+        { id: 'subjects', label: 'Curriculum Manager', icon: BookOpen, path: '/subjects' },
         { id: 'subject-assign', label: 'Faculty Mapping', icon: UserPlus, path: '/subject-assignments' },
         
-        { id: 'h-staff', label: 'Human Resources', icon: Users, path: '#', isHeader: true },
-        { id: 'teachers', label: 'Teachers', icon: UserCheck, path: '/teachers' },
-        { id: 'staff', label: 'Staff Management', icon: Users, path: '/staff' },
+        { id: 'h-staff', label: 'Personnel', icon: Users, path: '#', isHeader: true },
+        { id: 'teachers', label: 'Academic Faculty', icon: UserCheck, path: '/teachers' },
+        { id: 'staff', label: 'Operational Staff', icon: Users, path: '/staff' },
 
-        { id: 'h-students', label: 'Student Registry', icon: GraduationCap, path: '#', isHeader: true },
-        { id: 'students', label: 'Students', icon: GraduationCap, path: '/students' },
-        { id: 'guardians', label: 'Guardians', icon: UserCheck, path: '/guardians' },
-        { id: 'promotions', label: 'Promotions', icon: ArrowUpCircle, path: '/promotions' }
+        { id: 'h-students', label: 'Student Management', icon: GraduationCap, path: '#', isHeader: true },
+        { id: 'students', label: 'Master Registry', icon: GraduationCap, path: '/students' },
+        { id: 'guardians', label: 'Guardian Index', icon: UserCheck, path: '/guardians' },
+        { id: 'promotions', label: 'Cohort Promotions', icon: ArrowUpCircle, path: '/promotions' }
       );
     }
 
     // Teacher Section
     if (hasRole('teacher')) {
       items.push(
-        { id: 'h-lms', label: 'LMS Engine', icon: ClipboardList, path: '#', isHeader: true },
-        { id: 'lesson-notes', label: 'Lesson Notes', icon: FileText, path: '/lesson-notes' },
-        { id: 'assignments', label: 'Assignments', icon: ClipboardList, path: '/assignments' },
-        { id: 'attendance', label: 'Attendance', icon: CalendarCheck, path: '/attendance' },
-        { id: 'assessments', label: 'Assessments', icon: ListChecks, path: '/assessments' },
-        { id: 'results', label: 'Results Portal', icon: Trophy, path: '/results' },
-        { id: 'reports-teach', label: 'Academic Reports', icon: BarChart3, path: '/reports' }
+        { id: 'h-lms', label: 'LMS Center', icon: ClipboardList, path: '#', isHeader: true },
+        { id: 'lesson-notes', label: 'Lesson Vault', icon: FileText, path: '/lesson-notes' },
+        { id: 'assignments', label: 'Task Manager', icon: ClipboardList, path: '/assignments' },
+        { id: 'attendance', label: 'Daily Register', icon: CalendarCheck, path: '/attendance' },
+        { id: 'assessments', label: 'Evaluations', icon: ListChecks, path: '/assessments' },
+        { id: 'results', label: 'Gradebook', icon: Trophy, path: '/results' }
       );
     }
 
-    // Exams Officer Section
-    if (hasRole('exams_officer')) {
-      items.push(
-        { id: 'h-exams', label: 'Exams & Results', icon: Trophy, path: '#', isHeader: true },
-        { id: 'results-review', label: 'Review Results', icon: ListChecks, path: '/results' },
-        { id: 'acad-history', label: 'Academic History', icon: History, path: '/results' },
-        { id: 'acad-reports', label: 'Academic Reports', icon: BarChart3, path: '/reports' }
-      );
-    }
-
-    // Finance Officer / Admin Finance
+    // Finance Group
     if (hasRole('finance_officer') || hasRole('school_admin')) {
       items.push(
-        { id: 'h-finance', label: 'Financial Control', icon: CreditCard, path: '#', isHeader: true },
-        { id: 'fees', label: 'Fees Registry', icon: Wallet, path: '/fees' },
-        { id: 'fee-types', label: 'Fee Categories', icon: Layers, path: '/fee-structures' },
-        { id: 'invoices', label: 'Invoices', icon: Receipt, path: '/invoices' },
-        { id: 'payments', label: 'Record Payment', icon: CreditCard, path: '/payments' },
-        { id: 'fin-reports', label: 'Finance Reports', icon: BarChart3, path: '/reports' }
+        { id: 'h-finance', label: 'Revenue & Finance', icon: CreditCard, path: '#', isHeader: true },
+        { id: 'fees', label: 'Fee Schedules', icon: Wallet, path: '/fees' },
+        { id: 'fee-types', label: 'Billing Categories', icon: Layers, path: '/fee-structures' },
+        { id: 'invoices', label: 'Invoice Ledger', icon: Receipt, path: '/invoices' },
+        { id: 'payments', label: 'Settlement Log', icon: CreditCard, path: '/payments' }
       );
     }
 
-    // Student Section
+    // Student & Guardian Common
     if (hasRole('student')) {
       items.push(
-        { id: 'h-learning', label: 'Learning Center', icon: BookOpen, path: '#', isHeader: true },
-        { id: 'stud-assign', label: 'My Assignments', icon: ClipboardList, path: '/assignments' },
-        { id: 'stud-attend', label: 'My Attendance', icon: CalendarCheck, path: '/attendance' },
-        { id: 'stud-results', label: 'My Results', icon: Trophy, path: '/results' },
-        { id: 'stud-fees', label: 'Fees & Finance', icon: Receipt, path: '/finance' }
+        { id: 'h-learning', label: 'My Education', icon: BookOpen, path: '#', isHeader: true },
+        { id: 'stud-assign', label: 'My Tasks', icon: ClipboardList, path: '/assignments' },
+        { id: 'stud-attend', label: 'Attendance', icon: CalendarCheck, path: '/attendance' },
+        { id: 'stud-results', label: 'My Results', icon: Trophy, path: '/results' }
       );
     }
 
-    // Guardian Section
-    if (hasRole('guardian')) {
-      items.push(
-        { id: 'h-guardian', label: 'Guardian Portal', icon: Heart, path: '#', isHeader: true },
-        { id: 'my-wards', label: 'My Children', icon: Heart, path: '/guardian-portal' },
-        { id: 'ward-results', label: 'Results View', icon: Trophy, path: '/results' },
-        { id: 'ward-finance', label: 'Fee Payments', icon: CreditCard, path: '/finance' }
-      );
-    }
+    items.push(
+      { id: 'h-settings', label: 'Configuration', icon: Settings, path: '#', isHeader: true },
+      { id: 'profile', label: 'My Profile', icon: UserCheck, path: '/profile' },
+      { id: 'settings', label: 'System Settings', icon: Settings, path: '/settings' }
+    );
 
     return items;
   };
@@ -177,10 +158,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <div className="p-4 border-t border-gray-100 bg-gray-50/50">
             <div className="mb-4 px-4 flex items-center gap-2">
                <ShieldCheck size={14} className="text-green-500" />
-               <span className="text-[10px] font-black text-gray-400 uppercase truncate">Primary: {user?.role.replace('_', ' ')}</span>
+               <span className="text-[10px] font-black text-gray-400 uppercase truncate">Context: {user?.role.replace('_', ' ')}</span>
             </div>
             <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-black text-[10px] uppercase tracking-widest">
-              <LogOut size={16} /> Logout Session
+              <LogOut size={16} /> Terminate Session
             </button>
           </div>
         </div>
