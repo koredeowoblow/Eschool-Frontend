@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Edit2, Trash2, Eye, Loader2, User, School, Calendar, Mail, UserPlus, ShieldCheck, Lock, SearchIcon } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Eye, Loader2, User, School, Calendar, Mail, UserPlus, ShieldCheck, Lock, SearchIcon, Activity, Users, UserMinus } from 'lucide-react';
 import { Student } from '../types';
 import { useDataTable } from '../hooks/useDataTable';
 import { DataTable } from '../components/common/DataTable';
@@ -9,6 +9,7 @@ import { useSelectOptions } from '../hooks/useSelectOptions';
 import { useFormSubmit } from '../hooks/useFormSubmit';
 import Modal from '../components/common/Modal';
 import UserAvatar from '../components/common/UserAvatar';
+import StatsCard from '../components/common/StatsCard';
 import api from '../services/api';
 
 const fetchStudentsApi = async ({ page, search, filters }: { page: number, search: string, filters?: any }) => {
@@ -20,9 +21,10 @@ const fetchStudentsApi = async ({ page, search, filters }: { page: number, searc
 
 const Students: React.FC = () => {
   const navigate = useNavigate();
+  const [stats, setStats] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeFormTab, setActiveFormTab] = useState<'basic' | 'academic' | 'guardian'>('basic');
-  const [guardianMode, setGuardianMode] = useState<'create' | 'lookup'>('create');
+  const [assignExistingGuardian, setAssignExistingGuardian] = useState(false);
   
   const { data, isLoading, search, setSearch, refresh } = useDataTable<Student>(fetchStudentsApi as any);
   const { options: classOptions } = useSelectOptions('/classes');
@@ -30,6 +32,10 @@ const Students: React.FC = () => {
   const { options: sessionOptions } = useSelectOptions('/school-sessions');
   const { options: termOptions } = useSelectOptions('/terms');
   const { options: guardianOptions } = useSelectOptions('/guardians');
+
+  useEffect(() => {
+    api.get('/dashboard/stats').then(res => setStats(res.data.data || res.data));
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -55,9 +61,12 @@ const Students: React.FC = () => {
   });
 
   const { submit, isSubmitting } = useFormSubmit(
-    (data) => api.post('/students', data),
+    (data) => api.post('/students', {
+      ...data,
+      assign_existing_guardian: assignExistingGuardian
+    }),
     {
-      successMessage: "Institutional record and data-links successfully synchronized.",
+      successMessage: "Institutional record successfully synchronized.",
       onSuccess: () => {
         setIsModalOpen(false);
         refresh();
@@ -112,12 +121,20 @@ const Students: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Stats Row Required by Specification */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatsCard label="Total Students" value={stats?.total_students || 0} icon={Users} color="bg-brand-primary" />
+        <StatsCard label="Active" value={stats?.active_students || 0} icon={Activity} color="bg-green-600" />
+        <StatsCard label="Inactive" value={stats?.inactive_students || 0} icon={UserMinus} color="bg-gray-400" />
+        <StatsCard label="Recent Admissions" value={stats?.recent_admissions || 0} icon={UserPlus} color="bg-orange-500" />
+      </div>
+
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
           <input 
-            type="text" placeholder="Search registry..." value={search}
+            type="text" placeholder="Search student registry..." value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-semibold outline-none focus:border-brand-primary shadow-sm"
           />
@@ -162,11 +179,8 @@ const Students: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Default Access Token</label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
-                  <input required type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
-                </div>
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+                <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
               </div>
               <button type="button" onClick={() => setActiveFormTab('academic')} className="w-full py-4 bg-gray-800 text-white rounded-xl font-black uppercase tracking-widest">Next: Academic Data</button>
             </div>
@@ -206,17 +220,23 @@ const Students: React.FC = () => {
 
           {activeFormTab === 'guardian' && (
             <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-               <div className="flex bg-gray-100 p-1 rounded-xl">
-                 <button type="button" onClick={() => setGuardianMode('create')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${guardianMode === 'create' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400'}`}>Create New</button>
-                 <button type="button" onClick={() => setGuardianMode('lookup')} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${guardianMode === 'lookup' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400'}`}>Existing Search</button>
+               <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 mb-2">
+                 <input 
+                    type="checkbox" 
+                    id="existing-guardian"
+                    checked={assignExistingGuardian} 
+                    onChange={e => setAssignExistingGuardian(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-brand-primary"
+                 />
+                 <label htmlFor="existing-guardian" className="text-sm font-bold text-gray-700 cursor-pointer">Assign Existing Guardian</label>
                </div>
 
-               {guardianMode === 'lookup' ? (
+               {assignExistingGuardian ? (
                  <div className="space-y-1 py-4">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Select Registered Guardian</label>
                     <div className="relative">
                       <SearchIcon size={16} className="absolute left-3.5 top-3.5 text-gray-400" />
-                      <select required={guardianMode === 'lookup'} value={formData.guardian_id} onChange={e => setFormData({...formData, guardian_id: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold appearance-none">
+                      <select required={assignExistingGuardian} value={formData.guardian_id} onChange={e => setFormData({...formData, guardian_id: e.target.value})} className="w-full pl-10 p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold appearance-none">
                          <option value="">Lookup Registry...</option>
                          {guardianOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
@@ -226,9 +246,13 @@ const Students: React.FC = () => {
                  <div className="space-y-4">
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Parent Identity</label>
-                      <input required={guardianMode === 'create'} type="text" value={formData.guardian.name} onChange={e => setFormData({...formData, guardian: {...formData.guardian, name: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                      <input required={!assignExistingGuardian} type="text" value={formData.guardian.name} onChange={e => setFormData({...formData, guardian: {...formData.guardian, name: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Phone Number</label>
+                        <input required={!assignExistingGuardian} type="text" value={formData.guardian.phone} onChange={e => setFormData({...formData, guardian: {...formData.guardian, phone: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+                      </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Relation</label>
                         <select value={formData.guardian.relation} onChange={e => setFormData({...formData, guardian: {...formData.guardian, relation: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold">
@@ -237,15 +261,11 @@ const Students: React.FC = () => {
                           <option value="Legal Guardian">Legal Guardian</option>
                         </select>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email</label>
-                        <input required={guardianMode === 'create'} type="email" value={formData.guardian.email} onChange={e => setFormData({...formData, guardian: {...formData.guardian, email: e.target.value}})} className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
-                      </div>
                     </div>
                  </div>
                )}
               
-              <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2">
+              <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
                 {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><UserPlus size={18}/> Commit Registration</>}
               </button>
             </div>

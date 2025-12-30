@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { BarChart3, FileDown, BookOpen, Search, Loader2, Inbox, Table, AlertCircle, RefreshCw, Layers, ShieldAlert } from 'lucide-react';
+import { BarChart3, FileDown, BookOpen, Loader2, Table, RefreshCw, ShieldAlert } from 'lucide-react';
 import api from '../services/api';
 import { useSelectOptions } from '../hooks/useSelectOptions';
+import { useNotification } from '../context/NotificationContext';
 
 const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'broadsheet' | 'missing'>('broadsheet');
@@ -13,6 +14,7 @@ const Reports: React.FC = () => {
   
   const { options: classOptions } = useSelectOptions('/classes');
   const { options: termOptions } = useSelectOptions('/terms');
+  const { showNotification } = useNotification();
 
   const handleGenerateReport = async () => {
     if (!filters.class_id || !filters.term_id) return;
@@ -22,23 +24,30 @@ const Reports: React.FC = () => {
         const res = await api.get('/reports/broadsheet', { params: filters });
         setBroadsheet(res.data.data || res.data);
       } else {
-        const res = await api.get('/reports/missing', { params: filters }); // GET api/v1/reports/missing
+        const res = await api.get('/reports/missing', { params: filters });
         setMissingMarks(res.data.data || res.data || []);
       }
     } catch (err) {
       console.error("Report generation failed", err);
+      showNotification("Could not retrieve report data.", 'error');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleCollate = async () => {
+    if (!filters.class_id || !filters.term_id) {
+       showNotification("Please select a class and term first.", 'warning');
+       return;
+    }
     setIsGenerating(true);
     try {
       await api.post('/reports/collate', filters);
-      alert("Results collation successful! You can now generate the broadsheet.");
+      showNotification("Results collation successful! Broadsheet is now updated.", 'success');
+      if (activeTab === 'broadsheet') handleGenerateReport();
     } catch (err) {
       console.error("Collation error", err);
+      showNotification("Failed to collate results.", 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -57,7 +66,7 @@ const Reports: React.FC = () => {
               <button onClick={() => setActiveTab('missing')} className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === 'missing' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Missing Data</button>
            </div>
            {activeTab === 'broadsheet' && (
-             <button onClick={handleCollate} className="px-6 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-2">
+             <button onClick={handleCollate} disabled={isGenerating} className="px-6 py-3 bg-white border border-gray-200 text-gray-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-2">
                <RefreshCw size={16} className={isGenerating ? 'animate-spin' : ''} /> Collate Session
              </button>
            )}

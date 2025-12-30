@@ -13,19 +13,17 @@ const api = axios.create({
   },
 });
 
-// Production Retry Logic for Cold Starts
 api.interceptors.response.use(undefined, async (err: AxiosError) => {
   const config = err.config as any;
+  if (!config) return Promise.reject(err);
   
-  // If config does not exist or retry is not enabled, reject
-  if (!config || !config.retryCount) config.retryCount = 0;
+  if (config.retryCount === undefined) config.retryCount = 0;
   
-  // Only retry on specific status codes (502, 503, 504) or timeout
   const shouldRetry = (err.response?.status && [502, 503, 504].includes(err.response.status)) || err.code === 'ECONNABORTED';
   
   if (shouldRetry && config.retryCount < 3) {
     config.retryCount += 1;
-    const delay = config.retryCount * 2000; // Exponential-ish delay: 2s, 4s, 6s
+    const delay = config.retryCount * 2000;
     console.warn(`Production Server Wake-up: Retry attempt ${config.retryCount} in ${delay}ms...`);
     
     await new Promise(resolve => setTimeout(resolve, delay));

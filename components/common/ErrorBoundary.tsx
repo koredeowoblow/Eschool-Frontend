@@ -10,7 +10,8 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+// Fix: Explicitly extending React.Component ensures that instance properties like this.props and this.setState are correctly typed and inherited.
+export class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null
@@ -26,6 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    // Fix: setState is a member of React.Component and is used to update the component state.
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
@@ -63,7 +65,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Access children via this.props in a class component
+    // Fix: Access children via this.props which is defined on the React.Component base class.
     return this.props.children;
   }
 }

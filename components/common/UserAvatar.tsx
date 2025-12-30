@@ -19,8 +19,9 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ src, name = 'User', size = 'md'
     xl: 'w-32 h-32 text-2xl'
   };
 
-  const initials = name
-    .split(' ')
+  const initials = (name || 'U')
+    .trim()
+    .split(/\s+/)
     .map((n) => n[0])
     .join('')
     .toUpperCase()

@@ -1,17 +1,20 @@
 
 export enum UserRole {
-  SUPER_ADMIN = 'SUPER_ADMIN',
-  SCHOOL_ADMIN = 'SCHOOL_ADMIN',
-  TEACHER = 'TEACHER',
-  STUDENT = 'STUDENT',
-  GUARDIAN = 'GUARDIAN'
+  SUPER_ADMIN = 'super_admin',
+  SCHOOL_ADMIN = 'school_admin',
+  TEACHER = 'teacher',
+  STUDENT = 'student',
+  GUARDIAN = 'guardian',
+  FINANCE_OFFICER = 'finance_officer',
+  EXAMS_OFFICER = 'exams_officer'
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: UserRole; // Primary mapped role
+  roles: string[]; // Normalized snake_case role strings
   avatar?: string;
 }
 
@@ -41,6 +44,8 @@ export interface Teacher {
   phone: string;
   subject?: string;
   status: 'Active' | 'On Leave' | 'Suspended';
+  // Fix: Added missing qualification property to resolve TypeScript error in pages/Teachers.tsx
+  qualification?: string;
 }
 
 export interface StaffMember {

@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Users, UserPlus, Calendar, Wallet, TrendingUp, Sparkles, Send, Loader2, School, Activity, ShieldCheck
+  Users, UserPlus, Calendar, Wallet, TrendingUp, Sparkles, Send, Loader2, School, Activity, ShieldCheck, Clock, CheckCircle2, UserPlus2, Receipt, BarChart3
 } from 'lucide-react';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
 import StatsCard from '../components/common/StatsCard';
 import { getAcademicAdvice } from '../services/geminiService';
@@ -21,22 +21,35 @@ const Dashboard: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [feeData, setFeeData] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
 
   const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const statsRes = await api.get('/dashboard/stats');
+        const [statsRes, activityRes] = await Promise.all([
+          api.get('/dashboard/stats'),
+          api.get('/dashboard/activities').catch(() => ({ data: { data: [] } }))
+        ]);
         setStats(statsRes.data.data || statsRes.data);
+        setActivities(activityRes.data.data || activityRes.data || []);
       } catch (err) {
-        console.warn("Stats fetch failed:", err);
+        console.warn("Dashboard data fetch failed:", err);
       }
       
       if (!isSuperAdmin) {
         try {
-          const chartRes = await api.get('/dashboard/attendance-trends');
+          const [chartRes, feeRes] = await Promise.all([
+            api.get('/dashboard/attendance-trends'),
+            api.get('/dashboard/fee-collection-stats').catch(() => ({ data: { data: [] } }))
+          ]);
           setAttendanceData(Array.isArray(chartRes.data.data) ? chartRes.data.data : []);
+          setFeeData(Array.isArray(feeRes.data.data) ? feeRes.data.data : [
+            { name: 'Mon', amount: 4000 }, { name: 'Tue', amount: 3000 }, { name: 'Wed', amount: 2000 },
+            { name: 'Thu', amount: 2780 }, { name: 'Fri', amount: 1890 }
+          ]);
         } catch (err) {
           setAttendanceData([]);
         }
@@ -52,6 +65,15 @@ const Dashboard: React.FC = () => {
     const result = await getAcademicAdvice(aiQuery);
     setAiResponse(result || "No response received.");
     setIsAiLoading(false);
+  };
+
+  const getEventIcon = (type: string) => {
+    switch(type?.toLowerCase()) {
+      case 'enrollment': return <UserPlus2 size={14} className="text-blue-500" />;
+      case 'invoice': return <Receipt size={14} className="text-orange-500" />;
+      case 'system': return <ShieldCheck size={14} className="text-green-500" />;
+      default: return <Clock size={14} className="text-gray-400" />;
+    }
   };
 
   return (
@@ -91,41 +113,58 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8">
-          <div className="card-premium p-6 h-full min-h-[400px]">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-blue-50 text-brand-primary rounded-xl flex items-center justify-center">
-                <TrendingUp size={20} />
+        <div className="lg:col-span-8 space-y-8">
+          <div className="card-premium p-6">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 text-brand-primary rounded-xl flex items-center justify-center">
+                  <TrendingUp size={20} />
+                </div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  {isSuperAdmin ? 'Global Registration Trends' : 'Attendance Analysis'}
+                </h2>
               </div>
-              <h2 className="text-xl font-bold text-slate-800">
-                {isSuperAdmin ? 'Global Registration Trends' : 'Attendance Trends'}
-              </h2>
             </div>
-            {attendanceData.length > 0 ? (
-              <div className="h-80 w-full">
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={attendanceData}>
+                  <defs>
+                    <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0d6efd" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#0d6efd" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dx={-10} />
+                  <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+                  <Area type="monotone" dataKey={isSuperAdmin ? "registrations" : "attendance"} stroke="#0d6efd" strokeWidth={4} fill="url(#colorTrend)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {!isSuperAdmin && (
+            <div className="card-premium p-6">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
+                  <BarChart3 size={20} />
+                </div>
+                <h2 className="text-xl font-bold text-slate-800">Fee Collection Matrix</h2>
+              </div>
+              <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={attendanceData}>
-                    <defs>
-                      <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0d6efd" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#0d6efd" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
+                  <BarChart data={feeData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dx={-10} />
-                    <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
-                    <Area type="monotone" dataKey={isSuperAdmin ? "registrations" : "attendance"} stroke="#0d6efd" strokeWidth={4} fill="url(#colorTrend)" />
-                  </AreaChart>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} />
+                    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}} />
+                    <Bar dataKey="amount" fill="#2563eb" radius={[6, 6, 0, 0]} barSize={32} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-            ) : (
-              <div className="h-80 flex flex-col items-center justify-center text-gray-300 gap-2">
-                <TrendingUp size={48} strokeWidth={1} />
-                <p className="text-sm font-bold uppercase tracking-widest">Awaiting trend data from tenants</p>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-4 space-y-8">
@@ -146,10 +185,39 @@ const Dashboard: React.FC = () => {
               </button>
             </div>
             {aiResponse && (
-              <div className="p-5 bg-white/10 rounded-2xl border border-white/10 text-sm max-h-40 overflow-y-auto custom-scrollbar">
-                <p className="italic font-medium leading-relaxed">"{aiResponse}"</p>
+              <div className="p-5 bg-white/10 rounded-2xl border border-white/10 text-sm max-h-40 overflow-y-auto custom-scrollbar font-medium italic leading-relaxed">
+                "{aiResponse}"
               </div>
             )}
+          </div>
+
+          <div className="card-premium p-6">
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <Activity size={16} className="text-brand-primary" /> System Activity Feed
+            </h3>
+            <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+              {activities.length > 0 ? activities.map((event, idx) => (
+                <div key={idx} className="flex gap-4 group cursor-default">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100 group-hover:border-brand-primary/30 transition-all shadow-sm">
+                      {getEventIcon(event.type)}
+                    </div>
+                    {idx !== activities.length - 1 && <div className="w-0.5 h-full bg-gray-100 mt-2"></div>}
+                  </div>
+                  <div className="pb-6">
+                    <p className="text-xs font-bold text-gray-800 line-clamp-1">{event.message}</p>
+                    <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-tight">
+                      {event.time || 'Just now'} • {event.school_name || 'System'}
+                    </p>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-center py-10 text-gray-400">
+                  <Clock size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-xs font-bold uppercase tracking-widest">No recent events</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

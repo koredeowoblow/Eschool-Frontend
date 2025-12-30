@@ -1,22 +1,34 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User as UserIcon, Shield, Mail, Lock, LogOut, Camera, Save, Link as LinkIcon, Globe, Loader2, ExternalLink, MapPin, Smartphone, ShieldCheck } from 'lucide-react';
+import { User as UserIcon, Shield, Mail, Lock, LogOut, Camera, Save, MapPin, Loader2, ShieldCheck } from 'lucide-react';
 import api from '../services/api';
 import { useFormSubmit } from '../hooks/useFormSubmit';
 
 const Profile: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'info' | 'address' | 'security'>('info');
-  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
 
-  const [infoData, setInfoData] = useState({ name: user?.name || '', email: user?.email || '', phone: '', gender: 'male', date_of_birth: '' });
+  const [infoData, setInfoData] = useState({ 
+    name: user?.name || '', 
+    email: user?.email || '', 
+    phone: '', 
+    gender: 'male', 
+    date_of_birth: '' 
+  });
+  
   const [addressData, setAddressData] = useState({ address: '', city: '', state: '', zip: '', country: 'Nigeria' });
   const [passwordData, setPasswordData] = useState({ current_password: '', password: '', password_confirmation: '' });
 
   const { submit: submitInfo, isSubmitting: isInfoSubmitting } = useFormSubmit(
     (data) => api.put('/profile', data),
-    { successMessage: "Personal identity metadata synchronized." }
+    { 
+      successMessage: "Personal identity metadata synchronized.",
+      onSuccess: (res) => {
+        const updated = res.data?.data || res.data;
+        if (updated) updateUser({ name: updated.name });
+      }
+    }
   );
 
   const { submit: submitAddress, isSubmitting: isAddressSubmitting } = useFormSubmit(
@@ -26,18 +38,11 @@ const Profile: React.FC = () => {
 
   const { submit: submitPassword, isSubmitting: isPassSubmitting } = useFormSubmit(
     (data) => api.put('/profile/password', data),
-    { successMessage: "Access credentials successfully rotated.", onSuccess: () => setPasswordData({ current_password: '', password: '', password_confirmation: '' }) }
+    { 
+      successMessage: "Access credentials successfully rotated.", 
+      onSuccess: () => setPasswordData({ current_password: '', password: '', password_confirmation: '' }) 
+    }
   );
-
-  useEffect(() => {
-    const fetchLinks = async () => {
-      try {
-        const res = await api.get('/account/links');
-        setLinkedAccounts(res.data.data || []);
-      } catch (err) { console.warn("Identity links unavailable."); }
-    };
-    fetchLinks();
-  }, []);
 
   if (!user) return null;
 
@@ -155,7 +160,7 @@ const Profile: React.FC = () => {
 
            {activeTab === 'security' && (
              <div className="card-premium p-8 animate-in slide-in-from-right-4 duration-300">
-                <h3 className="text-lg font-black text-gray-800 mb-8 border-b border-gray-50 pb-4">Security Protocol rotation</h3>
+                <h3 className="text-lg font-black text-gray-800 mb-8 border-b border-gray-50 pb-4">Security Protocol Rotation</h3>
                 <form onSubmit={e => { e.preventDefault(); submitPassword(passwordData); }} className="space-y-6">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Current Master Token</label>

@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
-import { BookOpen, UserCheck, Plus, Search, Loader2, Inbox, Save, Trash2, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { BookOpen, UserCheck, Plus, Search, Loader2, Inbox, Save, Trash2, ArrowRight, FilterX } from 'lucide-react';
 import api from '../services/api';
 import { useDataTable } from '../hooks/useDataTable';
 import { DataTable } from '../components/common/DataTable';
@@ -14,13 +15,24 @@ const fetchAssignmentsApi = async (params: any) => {
 };
 
 const SubjectAssignments: React.FC = () => {
-  const { data, isLoading, refresh } = useDataTable(fetchAssignmentsApi);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const teacherFilter = searchParams.get('teacher_id');
+  
+  const { data, isLoading, refresh, setFilters, filters } = useDataTable(fetchAssignmentsApi);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { options: teacherOptions } = useSelectOptions('/teachers');
   const { options: subjectOptions } = useSelectOptions('/subjects');
 
-  const [formData, setFormData] = useState({ teacher_id: '', subject_id: '' });
+  // Apply teacher filter from URL if present (Section 10 Requirement)
+  useEffect(() => {
+    if (teacherFilter) {
+      setFilters(prev => ({ ...prev, teacher_id: teacherFilter }));
+    }
+  }, [teacherFilter]);
+
+  const [formData, setFormData] = useState({ teacher_id: teacherFilter || '', subject_id: '' });
+  
   const { submit, isSubmitting } = useFormSubmit(
     (data) => api.post('/subject-assignments', data),
     {
@@ -31,6 +43,11 @@ const SubjectAssignments: React.FC = () => {
     }
   );
 
+  const clearFilters = () => {
+    setSearchParams({});
+    setFilters({});
+  };
+
   const columns = [
     { 
       header: 'Academic Expert', 
@@ -38,7 +55,10 @@ const SubjectAssignments: React.FC = () => {
       render: (a: any) => (
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-blue-50 text-brand-primary rounded-xl flex items-center justify-center font-black text-xs">{(a.teacher?.name || 'T')[0]}</div>
-          <span className="font-bold text-gray-800">{a.teacher?.name || 'Unknown Teacher'}</span>
+          <div>
+            <p className="font-bold text-gray-800">{a.teacher?.name || 'Unknown Teacher'}</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase">{a.teacher?.employee_number}</p>
+          </div>
         </div>
       )
     },
@@ -69,10 +89,27 @@ const SubjectAssignments: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800">Faculty Mapping</h2>
           <p className="text-sm text-gray-500 font-medium">Link teachers to their specialized subjects</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
-          <Plus size={18} /> New Assignment
-        </button>
+        <div className="flex gap-2">
+          {Object.keys(filters).length > 0 && (
+            <button onClick={clearFilters} className="flex items-center gap-2 px-4 py-3 bg-gray-100 text-gray-600 rounded-2xl text-xs font-bold hover:bg-gray-200 transition-all">
+              <FilterX size={16} /> Clear Filters
+            </button>
+          )}
+          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
+            <Plus size={18} /> New Assignment
+          </button>
+        </div>
       </div>
+
+      {teacherFilter && (
+        <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
+           <div className="flex items-center gap-3">
+             <div className="w-8 h-8 bg-brand-primary text-white rounded-lg flex items-center justify-center font-bold text-xs">FT</div>
+             <p className="text-xs font-bold text-brand-primary">Filtering results for Teacher ID: <span className="underline">{teacherFilter}</span></p>
+           </div>
+           <button onClick={clearFilters} className="text-[10px] font-black text-brand-primary uppercase hover:underline">Show All Assignments</button>
+        </div>
+      )}
 
       <DataTable columns={columns} data={data} isLoading={isLoading} />
 
