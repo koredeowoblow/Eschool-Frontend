@@ -1,24 +1,40 @@
 
 import React, { useState, useEffect } from 'react';
-import { Megaphone, Plus, Bell, Calendar, Info, AlertTriangle, Loader2, Inbox } from 'lucide-react';
+import { Megaphone, Plus, Bell, Calendar, Info, AlertTriangle, Loader2, Inbox, Send } from 'lucide-react';
 import api from '../services/api';
+import Modal from '../components/common/Modal';
+import { useFormSubmit } from '../hooks/useFormSubmit';
 
 const Noticeboard: React.FC = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const fetchAnnouncements = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/noticeboard');
+      setAnnouncements(res.data.data || res.data || []);
+    } catch (err) {
+      console.error("Failed to load noticeboard", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const [formData, setFormData] = useState({ title: '', content: '', type: 'Info' });
+  const { submit, isSubmitting, errors } = useFormSubmit(
+    (data) => api.post('/noticeboard', data),
+    {
+      onSuccess: () => {
+        setIsModalOpen(false);
+        setFormData({ title: '', content: '', type: 'Info' });
+        fetchAnnouncements();
+      }
+    }
+  );
 
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      setIsLoading(true);
-      try {
-        const res = await api.get('/noticeboard');
-        setAnnouncements(res.data.data || res.data || []);
-      } catch (err) {
-        console.error("Failed to load noticeboard", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchAnnouncements();
   }, []);
 
@@ -32,7 +48,7 @@ const Noticeboard: React.FC = () => {
           </h2>
           <p className="text-sm text-gray-500 font-medium tracking-tight">Official institutional updates and alerts</p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg">
+        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all">
           <Plus size={18} /> Post Notice
         </button>
       </div>
@@ -75,6 +91,47 @@ const Noticeboard: React.FC = () => {
            <p className="font-bold">No announcements posted on the noticeboard yet.</p>
         </div>
       )}
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Broadcast Announcement">
+        <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject</label>
+            <input 
+              required type="text" value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
+              className={`w-full p-3.5 bg-gray-50 border rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 ${errors.title ? 'border-red-400' : 'border-gray-100'}`}
+              placeholder="e.g. End of Term Arrangements"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Urgency</label>
+            <select 
+              value={formData.type}
+              onChange={e => setFormData({...formData, type: e.target.value})}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-800 outline-none"
+            >
+              <option value="Info">General Information</option>
+              <option value="Urgent">Urgent / Important</option>
+              <option value="Event">Event Notification</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Message Content</label>
+            <textarea 
+              required rows={4} value={formData.content}
+              onChange={e => setFormData({ ...formData, content: e.target.value })}
+              className={`w-full p-3.5 bg-gray-50 border rounded-xl outline-none focus:border-brand-primary font-medium text-sm text-gray-800 ${errors.content ? 'border-red-400' : 'border-gray-100'}`}
+              placeholder="Write the full notice details here..."
+            />
+          </div>
+          <button 
+            type="submit" disabled={isSubmitting}
+            className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Send size={18}/> Publish Notice</>}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 };
