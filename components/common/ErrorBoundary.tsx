@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
@@ -10,7 +11,9 @@ interface State {
   error: Error | null;
 }
 
-// Fix: Explicitly extending React.Component ensures that instance properties like this.props and this.setState are correctly typed and inherited.
+/**
+ * ErrorBoundary component to catch rendering errors in child components.
+ */
 export class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -22,17 +25,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // In production, we'd log this to a service like Sentry
-    console.error('Uncaught error:', error, errorInfo);
+    // Log fatal crashes for diagnostic purposes
+    console.error('Uncaught application error:', error, errorInfo);
   }
 
+  // Handle resetting the error state
   private handleReset = () => {
-    // Fix: setState is a member of React.Component and is used to update the component state.
+    // Accessing setState from React.Component
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
-  public render() {
+  public render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
@@ -41,9 +45,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <AlertTriangle size={40} />
             </div>
             <div className="space-y-2">
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">Something went wrong</h1>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">System Encountered an Issue</h1>
               <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                The application encountered an unexpected error. Don't worry, your data is safe.
+                The application encountered an unexpected state. Your session is safe, please try reloading.
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -65,7 +69,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Fix: Access children via this.props which is defined on the React.Component base class.
+    // Accessing children from props inherited from React.Component
     return this.props.children;
   }
 }

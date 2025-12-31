@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Loader2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
@@ -21,23 +21,8 @@ const Login: React.FC = () => {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      let message = 'Invalid credentials or connection error.';
-      
-      if (typeof err === 'string') {
-        message = err;
-      } else if (err instanceof Error) {
-        message = err.message;
-      } else if (err && typeof err.message === 'string') {
-        message = err.message;
-      } else if (err && err.error && typeof err.error === 'string') {
-        message = err.error;
-      } else if (err && typeof err.toString === 'function') {
-        const str = err.toString();
-        if (str !== '[object Object]') {
-          message = str;
-        }
-      }
-
+      // The message is now pre-normalized by the api service
+      const message = err.message || 'Invalid credentials or connection error.';
       setError(message);
       console.error("Login component caught error:", err);
     } finally {
@@ -61,8 +46,9 @@ const Login: React.FC = () => {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-xs font-bold text-red-600 animate-in fade-in slide-in-from-top-1">
-                {error}
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex gap-3 animate-in fade-in slide-in-from-top-1">
+                <AlertCircle className="text-red-500 shrink-0" size={18} />
+                <p className="text-xs font-bold text-red-600">{error}</p>
               </div>
             )}
 

@@ -7,10 +7,12 @@ import { DataTable } from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import { useSelectOptions } from '../hooks/useSelectOptions';
 import { useFormSubmit } from '../hooks/useFormSubmit';
+import { useNotification } from '../context/NotificationContext';
 
 const Library: React.FC = () => {
   const [activeView, setActiveView] = useState<'inventory' | 'borrowings'>('inventory');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const { showNotification } = useNotification();
   
   const { options: studentOptions } = useSelectOptions('/students');
   const { options: bookOptions } = useSelectOptions('/library/books', 'title');
@@ -41,13 +43,15 @@ const Library: React.FC = () => {
   );
 
   const handleReturn = async (id: string) => {
-    if (!window.confirm("Confirm book return?")) return;
+    // Proceed directly without confirm() as it is blocked in sandbox
     try {
-      await api.patch(`/library/borrowings/${id}/return`); // PATCH api/v1/library/borrowings/{id}/return
+      await api.patch(`/library/borrowings/${id}/return`); 
+      showNotification("Asset returned to inventory.", "success");
       borrowingsTable.refresh();
       inventoryTable.refresh();
     } catch (err) {
       console.error("Return failed", err);
+      showNotification("Return operation failed.", "error");
     }
   };
 
@@ -95,7 +99,7 @@ const Library: React.FC = () => {
       key: 'status',
       render: (log: any) => (
         <div className="flex items-center gap-3">
-          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${log.returned ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${log.returned ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
             {log.returned ? 'Returned' : 'Active Loan'}
           </span>
           {!log.returned && (
