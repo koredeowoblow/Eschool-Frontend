@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Globe, Activity, Plus, ExternalLink, Loader2, Inbox, ArrowRight, ArrowLeft, 
   CheckCircle2, School as SchoolIcon, Mail, Package, MapPin, Smartphone, 
-  Terminal, ShieldCheck, Users, Trash2, Power, PowerOff, Zap, Shield, User, GraduationCap,
+  ShieldCheck, Users, Trash2, Power, PowerOff, Zap, Shield, GraduationCap,
   Wallet
 } from 'lucide-react';
 import StatsCard from '../components/common/StatsCard';
@@ -64,11 +63,18 @@ const SuperAdmin: React.FC = () => {
         api.get('/schools'),
         api.get('/plans')
       ]);
-      setStats(statsRes.data.data || statsRes.data);
-      setSchools(schoolsRes.data.data || schoolsRes.data || []);
-      setPlans(plansRes.data.data || plansRes.data || []);
+      
+      setStats(statsRes.data?.data || statsRes.data);
+      
+      const schoolsData = schoolsRes.data?.data || schoolsRes.data;
+      setSchools(Array.isArray(schoolsData) ? schoolsData : []);
+      
+      const plansData = plansRes.data?.data || plansRes.data;
+      setPlans(Array.isArray(plansData) ? plansData : []);
     } catch (err) {
-      console.error("Failed to load platform data", err);
+      console.warn("Platform registry limited sync.");
+      setSchools([]);
+      setPlans([]);
     } finally {
       setIsLoading(false);
     }
@@ -112,14 +118,13 @@ const SuperAdmin: React.FC = () => {
 
   const handleToggleActivation = async (school: School) => {
     const actionText = school.is_active ? 'suspend' : 'approve';
-    // Removed window.confirm due to sandbox restrictions
     setIsActionLoading(school.id);
     try {
       await api.put(`/schools/${school.id}`, { is_active: school.is_active ? 0 : 1 });
       showNotification(`${school.name} has been ${actionText}ed.`, 'success');
       fetchSuperAdminData();
     } catch (err: any) {
-      showNotification("Update failed. Please try again.", 'error');
+      showNotification("Update failed. Institutional lock active.", 'error');
     } finally {
       setIsActionLoading(null);
     }
@@ -128,6 +133,9 @@ const SuperAdmin: React.FC = () => {
   useEffect(() => {
     fetchSuperAdminData();
   }, []);
+
+  const safeSchools = Array.isArray(schools) ? schools.filter(Boolean) : [];
+  const safePlans = Array.isArray(plans) ? plans.filter(Boolean) : [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -141,49 +149,52 @@ const SuperAdmin: React.FC = () => {
       <div className="card-premium p-8 border-gray-100">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">Schools</h2>
-            <p className="text-sm text-gray-500">Manage all school accounts on the platform</p>
+            <h2 className="text-xl font-bold text-gray-800 tracking-tight">Institutional Registry</h2>
+            <p className="text-sm text-gray-500 font-medium">Manage all school node accounts on the global platform</p>
           </div>
           <button 
             onClick={() => { setStep(1); setIsModalOpen(true); }} 
             className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95"
           >
-            <Plus size={18} /> Add School
+            <Plus size={18} /> Provision Node
           </button>
         </div>
 
         <div className="overflow-x-auto">
           {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>
+            <div className="flex flex-col items-center py-24 gap-4">
+              <Loader2 className="animate-spin text-brand-primary" size={32} />
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Querying Cloud Registry...</p>
+            </div>
           ) : (
-            <table className="w-full text-left">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  <th className="px-4 py-4">School</th>
-                  <th className="px-4 py-4">Location</th>
-                  <th className="px-4 py-4 text-center">Stats</th>
+                <tr className="border-b border-gray-50 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                  <th className="px-4 py-4">Institution Identity</th>
+                  <th className="px-4 py-4">Geographic Node</th>
+                  <th className="px-4 py-4 text-center">Load Factor</th>
                   <th className="px-4 py-4 text-center">Status</th>
-                  <th className="px-4 py-4 text-right">Actions</th>
+                  <th className="px-4 py-4 text-right">Administrative Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {schools.map((school) => (
+                {safeSchools.map((school) => (
                   <tr key={school.id} className="group hover:bg-gray-50/40 transition-colors text-sm">
                     <td className="px-4 py-5">
                       <p className="font-bold text-gray-800">{school.name}</p>
-                      <p className="text-[10px] text-brand-primary font-bold">{school.email}</p>
+                      <p className="text-[10px] text-brand-primary font-black uppercase tracking-widest">{school.email}</p>
                     </td>
-                    <td className="px-4 py-5 text-gray-500">
+                    <td className="px-4 py-5 text-gray-500 font-medium">
                       {school.city}, {school.state}
                     </td>
                     <td className="px-4 py-5 text-center">
                        <div className="flex flex-col gap-0.5">
-                         <span className="text-[10px] font-bold text-gray-400 uppercase">Users: {school.users_count || 0}</span>
-                         <span className="text-[10px] font-bold text-gray-400 uppercase">Students: {school.students_count || 0}</span>
+                         <span className="text-[9px] font-black text-gray-400 uppercase">Users: {school.users_count || 0}</span>
+                         <span className="text-[9px] font-black text-gray-400 uppercase">Students: {school.students_count || 0}</span>
                        </div>
                     </td>
                     <td className="px-4 py-5 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase ${
+                      <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
                         school.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                       }`}>
                         {school.is_active ? 'Active' : 'Suspended'}
@@ -195,7 +206,7 @@ const SuperAdmin: React.FC = () => {
                           onClick={() => handleToggleActivation(school)}
                           disabled={isActionLoading === school.id}
                           className={`p-2 rounded-xl transition-all ${school.is_active ? 'text-red-400 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
-                          title={school.is_active ? "Suspend" : "Approve"}
+                          title={school.is_active ? "Suspend Node" : "Authorize Node"}
                         >
                           {isActionLoading === school.id ? <Loader2 size={18} className="animate-spin" /> : school.is_active ? <PowerOff size={18}/> : <Power size={18}/>}
                         </button>
@@ -205,91 +216,96 @@ const SuperAdmin: React.FC = () => {
                     </td>
                   </tr>
                 ))}
+                {safeSchools.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-20 text-center text-gray-400 font-bold italic">Registry empty.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New School Registration">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Node Registration">
         <div className="flex gap-1.5 mb-8">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= i ? 'bg-brand-primary' : 'bg-gray-100'}`} />
+            <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-500 ${step >= i ? 'bg-brand-primary shadow-[0_0_8px_rgba(37,99,235,0.5)]' : 'bg-gray-100'}`} />
           ))}
         </div>
 
         {step === 1 && (
           <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            <h3 className="text-sm font-bold uppercase text-gray-400 tracking-widest">1. Basic Info</h3>
+            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] ml-1">1. Institutional Metadata</h3>
             <div className="space-y-3">
               <input 
-                type="text" placeholder="School Name" value={formData.name}
+                type="text" placeholder="Institution Name" value={formData.name}
                 onChange={handleNameChange} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:bg-white focus:border-brand-primary font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:bg-white focus:border-brand-primary font-bold text-sm"
               />
               <input 
-                type="email" placeholder="Contact Email" value={formData.email}
+                type="email" placeholder="Institutional Gateway Email" value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-brand-primary font-bold text-sm"
               />
               <input 
-                type="text" placeholder="Phone Number" value={formData.phone}
+                type="text" placeholder="Emergency Phone" value={formData.phone}
                 onChange={e => setFormData({...formData, phone: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-brand-primary font-bold text-sm"
               />
               <input 
-                type="text" placeholder="URL Slug" value={formData.slug}
+                type="text" placeholder="URL slug-identifier" value={formData.slug}
                 onChange={e => setFormData({...formData, slug: e.target.value})}
-                className="w-full p-3.5 bg-gray-100 border border-gray-100 rounded-xl outline-none font-mono text-xs font-bold text-gray-500"
+                className="w-full p-4 bg-gray-100 border border-gray-100 rounded-2xl outline-none font-mono text-[10px] font-black text-gray-500"
               />
             </div>
             <button 
               onClick={() => setStep(2)} 
               disabled={!formData.name || !formData.email || !formData.phone}
-              className="w-full py-4 bg-brand-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-all"
+              className="w-full py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-[0.98]"
             >
-              Continue <ArrowRight size={18} />
+              Configure Location <ArrowRight size={18} />
             </button>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            <h3 className="text-sm font-bold uppercase text-gray-400 tracking-widest">2. Location</h3>
+            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] ml-1">2. Geographic Coordinates</h3>
             <div className="space-y-3">
               <input 
-                type="text" placeholder="Address" value={formData.address}
+                type="text" placeholder="Primary Physical Address" value={formData.address}
                 onChange={e => setFormData({...formData, address: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
               />
               <div className="grid grid-cols-2 gap-3">
                 <input 
                   type="text" placeholder="City" value={formData.city}
                   onChange={e => setFormData({...formData, city: e.target.value})} required
-                  className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                  className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
                 />
                 <input 
-                  type="text" placeholder="State" value={formData.state}
+                  type="text" placeholder="State/Region" value={formData.state}
                   onChange={e => setFormData({...formData, state: e.target.value})} required
-                  className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                  className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
                 />
               </div>
               <input 
-                type="text" placeholder="Area" value={formData.area}
+                type="text" placeholder="Zone / Area" value={formData.area}
                 onChange={e => setFormData({...formData, area: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
               />
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep(1)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold flex items-center justify-center gap-2">
-                <ArrowLeft size={18} /> Back
+              <button onClick={() => setStep(1)} className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+                <ArrowLeft size={16} /> Previous
               </button>
               <button 
                 onClick={() => setStep(3)} 
                 disabled={!formData.address || !formData.city || !formData.state}
-                className="flex-1 py-4 bg-brand-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
               >
-                Next <ArrowRight size={18} />
+                Next <ArrowRight size={16} />
               </button>
             </div>
           </div>
@@ -297,34 +313,34 @@ const SuperAdmin: React.FC = () => {
 
         {step === 3 && (
           <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            <h3 className="text-sm font-bold uppercase text-gray-400 tracking-widest">3. Administrator</h3>
+            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] ml-1">3. Lead Administrator</h3>
             <div className="space-y-3">
               <input 
-                type="text" placeholder="Admin Name" value={formData.admin_name}
+                type="text" placeholder="Full Administrative Name" value={formData.admin_name}
                 onChange={e => setFormData({...formData, admin_name: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
               />
               <input 
-                type="email" placeholder="Admin Email" value={formData.admin_email}
+                type="email" placeholder="Direct Personal Email" value={formData.admin_email}
                 onChange={e => setFormData({...formData, admin_email: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
               />
               <input 
-                type="text" placeholder="Admin Phone" value={formData.contact_person_phone}
+                type="text" placeholder="Direct Contact No" value={formData.contact_person_phone}
                 onChange={e => setFormData({...formData, contact_person_phone: e.target.value})} required
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-sm"
+                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-sm"
               />
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep(2)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold flex items-center justify-center gap-2">
-                <ArrowLeft size={18} /> Back
+              <button onClick={() => setStep(2)} className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+                <ArrowLeft size={16} /> Previous
               </button>
               <button 
                 onClick={() => setStep(4)} 
                 disabled={!formData.admin_name || !formData.admin_email}
-                className="flex-1 py-4 bg-brand-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-brand-primary text-white rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
               >
-                Next <ArrowRight size={18} />
+                Next <ArrowRight size={16} />
               </button>
             </div>
           </div>
@@ -332,30 +348,35 @@ const SuperAdmin: React.FC = () => {
 
         {step === 4 && (
           <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-            <h3 className="text-sm font-bold uppercase text-gray-400 tracking-widest">4. Choose Plan</h3>
-            <div className="grid grid-cols-1 gap-2">
-              {plans.length > 0 ? plans.map(p => (
-                <label key={p.id} className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all ${formData.plan === String(p.id) ? 'bg-blue-50 border-brand-primary' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
-                  <div className="flex items-center gap-3">
-                    <Package size={20} className={formData.plan === String(p.id) ? 'text-brand-primary' : 'text-gray-400'} />
-                    <span className="font-bold text-sm text-gray-700">{p.name}</span>
+            <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] ml-1">4. Select Subscription Tier</h3>
+            <div className="grid grid-cols-1 gap-2.5 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+              {safePlans.length > 0 ? safePlans.map(p => (
+                <label key={p.id} className={`flex items-center justify-between p-4 border rounded-2xl cursor-pointer transition-all ${formData.plan === String(p.id) ? 'bg-blue-50 border-brand-primary ring-4 ring-brand-primary/5' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formData.plan === String(p.id) ? 'bg-brand-primary text-white shadow-md' : 'bg-gray-50 text-gray-400'}`}>
+                      <Package size={20} />
+                    </div>
+                    <div>
+                      <span className="font-black text-sm text-gray-800 uppercase tracking-tight">{p.name}</span>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">${p.price}/year</p>
+                    </div>
                   </div>
                   <input type="radio" name="plan" value={p.id} checked={formData.plan === String(p.id)} onChange={e => setFormData({...formData, plan: e.target.value})} className="hidden" />
-                  {formData.plan === String(p.id) && <CheckCircle2 size={16} className="text-brand-primary" />}
+                  {formData.plan === String(p.id) && <div className="w-5 h-5 bg-brand-primary rounded-full flex items-center justify-center text-white"><CheckCircle2 size={14} /></div>}
                 </label>
               )) : (
-                <div className="p-8 text-center text-gray-400 font-bold italic text-xs">Loading plans...</div>
+                <div className="p-12 text-center text-gray-400 font-bold italic text-xs bg-gray-50 rounded-2xl border border-dashed border-gray-200">No active plans discovered in catalog.</div>
               )}
             </div>
-            <div className="flex gap-3 pt-4">
-              <button onClick={() => setStep(3)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-xl font-bold flex items-center justify-center gap-2">
-                <ArrowLeft size={18} /> Back
+            <div className="flex gap-3 pt-6 border-t border-gray-50">
+              <button onClick={() => setStep(3)} className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+                <ArrowLeft size={16} /> Previous
               </button>
               <button 
                 onClick={() => submit(formData)} disabled={isSubmitting || !formData.plan}
-                className="flex-1 py-4 bg-green-600 text-white rounded-xl font-bold uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
+                className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-green-600/20 flex items-center justify-center gap-2 hover:bg-green-700 transition-all active:scale-[0.98]"
               >
-                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><ShieldCheck size={18} /> Create Account</>}
+                {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><ShieldCheck size={18} /> Provision Node</>}
               </button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
@@ -13,17 +14,13 @@ interface State {
 /**
  * ErrorBoundary component to catch rendering errors in child components.
  */
-// Fix: Explicitly using named 'Component' import ensures TypeScript correctly identifies inherited members like state, props, and setState.
+// Fix: Explicitly extending Component with Props and State type parameters to resolve setState and props accessibility issues in TypeScript.
 export class ErrorBoundary extends Component<Props, State> {
-  // Fix: Defining state at class level ensures member visibility and type safety within the component lifecycle.
+  // Fix: Initializing state as a class property with standard syntax.
   public state: State = {
     hasError: false,
     error: null
   };
-
-  constructor(props: Props) {
-    super(props);
-  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -35,13 +32,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
-    // Fix: setState is a standard method of Component, now correctly recognized through explicit inheritance.
+    // Fix: Accessing setState from the inherited Component class.
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
   public render(): ReactNode {
-    // Fix: Access to this.state is valid for classes extending standard React Component.
+    // Fix: Access to this.state is correctly typed when explicitly extending Component.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
@@ -74,7 +71,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: props access is a standard member of classes extending Component, used here to render children nodes.
+    // Fix: Access to this.props is correctly typed when explicitly extending Component.
     return this.props.children;
   }
 }

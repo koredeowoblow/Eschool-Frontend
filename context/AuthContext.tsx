@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { User, UserRole } from '../types';
 import api from '../services/api';
@@ -45,20 +44,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const activeTokenRef = useRef<string | null>(null);
 
   const initializeEcho = useCallback((token: string) => {
-    // Prevent reconnection if already connected with same token
+    if (!token) return;
+    
+    // Prevent redundant connections
     if (activeTokenRef.current === token && echoRef.current) return;
     
     try {
       if (echoRef.current) {
         echoRef.current.disconnect();
       }
+      
       const apiUrl = 'https://eschool-1.onrender.com/api/v1';
-      const echoInstance = initEcho(token, apiUrl);
+      // Pass token explicitly to ensure correct headers in the handshake
+      const echoInstance = initEcho(apiUrl, token);
+      
       echoRef.current = echoInstance;
       activeTokenRef.current = token;
       (window as any).Echo = echoInstance;
     } catch (e) {
-      console.warn("Realtime engine initialization failed.");
+      console.warn("Real-time engine handshake deferred.");
     }
   }, []);
 
@@ -88,6 +92,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (!token) throw new Error("Authentication failure: Missing Token.");
 
+      // CRITICAL: Immediately inject token into persistence
+      localStorage.setItem('eschool_token', token);
+      
       const rawRolesArray = Array.isArray(userData?.roles) 
         ? userData.roles 
         : (userData?.role ? [userData.role] : ['Student']);
@@ -107,9 +114,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         avatar: userData?.avatar || `https://picsum.photos/seed/${email}/100/100`
       };
 
-      setUser(newUser);
-      localStorage.setItem('eschool_token', token);
       localStorage.setItem('eschool_user', JSON.stringify(newUser));
+      
+      setUser(newUser);
       initializeEcho(token);
 
     } catch (error: any) {

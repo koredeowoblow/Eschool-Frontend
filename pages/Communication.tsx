@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Send, User, Loader2, MessageSquare, UserPlus, ChevronLeft, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Send, User, Loader2, MessageSquare, UserPlus, ChevronLeft, Clock, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -32,10 +32,18 @@ const Communication: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isChatsLoading, setIsChatsLoading] = useState(true);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [isEchoConnected, setIsEchoConnected] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activePartnerIdRef = useRef<string | number | null>(null);
-  const listenerAttachedRef = useRef<boolean>(false);
+  const isMountedRef = useRef(true);
+  
+  const fetchChatsRef = useRef<() => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -47,8 +55,7 @@ const Communication: React.FC = () => {
     if (!dateStr) return '';
     try {
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return '...';
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return isNaN(d.getTime()) ? '...' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
       return '...';
     }
@@ -58,8 +65,8 @@ const Communication: React.FC = () => {
     const map: Record<string, Conversation> = {};
     if (!user || !Array.isArray(chats)) return [];
 
-    chats.forEach(chat => {
-      if (!chat || !chat.sender_id || !chat.receiver_id) return;
+    chats.filter(Boolean).forEach(chat => {
+      if (!chat.sender_id || !chat.receiver_id) return;
       
       const partnerId = String(chat.sender_id) === String(user.id) ? String(chat.receiver_id) : String(chat.sender_id);
       let partner = String(chat.sender_id) === String(user.id) ? chat.receiver : chat.sender;
@@ -71,9 +78,13 @@ const Communication: React.FC = () => {
           lastMessageTime: chat.created_at || new Date().toISOString(),
           unreadCount: 0
         };
-      } else if (new Date(chat.created_at).getTime() > new Date(map[partnerId].lastMessageTime).getTime()) {
-        map[partnerId].lastMessage = chat.message || '';
-        map[partnerId].lastMessageTime = chat.created_at || map[partnerId].lastMessageTime;
+      } else {
+        const currentMsgTime = new Date(chat.created_at).getTime() || 0;
+        const storedMsgTime = new Date(map[partnerId].lastMessageTime).getTime() || 0;
+        if (currentMsgTime > storedMsgTime) {
+          map[partnerId].lastMessage = chat.message || '';
+          map[partnerId].lastMessageTime = chat.created_at;
+        }
       }
 
       if (!chat.is_read && String(chat.receiver_id) === String(user.id)) {
@@ -89,97 +100,132 @@ const Communication: React.FC = () => {
   }, [user?.id]);
 
   const fetchChats = useCallback(async () => {
+    // Only fetch if authenticated and token is available
+    const token = localStorage.getItem('eschool_token');
+    if (!user || !token) return; 
+    
     try {
       const res = await api.get('/chats');
+      if (!isMountedRef.current) return;
       const rawData = res.data?.data ?? res.data;
       const flat = Array.isArray(rawData) ? rawData : [];
       const grouped = groupMessagesByPartner(flat);
       setConversations(grouped);
     } catch (err) {
-      setConversations([]);
-      console.warn("Chat ledger sync issue:", err);
+      console.warn("Chat synchronization offline.");
     } finally {
-      setIsChatsLoading(false);
+      if (isMountedRef.current) setIsChatsLoading(false);
     }
-  }, [groupMessagesByPartner]);
+  }, [groupMessagesByPartner, user]);
 
-  // Initial data fetch
   useEffect(() => {
-    fetchChats();
-    api.get('/chats/available-contacts').then(res => {
-      const rawData = res.data?.data ?? res.data;
-      setAvailableContacts(Array.isArray(rawData) ? rawData : []);
-    }).catch(() => setAvailableContacts([]));
+    fetchChatsRef.current = fetchChats;
   }, [fetchChats]);
 
-  // Real-time synchronization
+  useEffect(() => {
+    if (!user || !localStorage.getItem('eschool_token')) return; 
+    
+    fetchChats();
+    api.get('/chats/available-contacts').then(res => {
+      if (!isMountedRef.current) return;
+      const rawData = res.data?.data ?? res.data;
+      setAvailableContacts(Array.isArray(rawData) ? rawData : []);
+    }).catch(() => {});
+  }, [fetchChats, user]);
+
   useEffect(() => {
     const Echo = (window as any).Echo;
-    if (Echo && user?.id && !listenerAttachedRef.current) {
-      try {
-        Echo.private(`chat.${user.id}`)
-          .listen('.MessageSent', (e: any) => {
-            if (!e) return;
-            if (String(e.sender_id) === String(activePartnerIdRef.current)) {
-              setMessages(prev => {
-                if (prev.find(m => m && m.id === e.id)) return prev;
-                return [...prev, e];
-              });
-              api.post('/chats/mark-as-read', { partner_id: e.sender_id }).catch(() => {});
-            }
-            fetchChats();
-          });
-        listenerAttachedRef.current = true;
-      } catch (err) {
-        console.warn("WebSocket layer unavailable.");
+    if (!Echo || !user?.id) return;
+
+    const onConnected = () => setIsEchoConnected(true);
+    const onDisconnected = () => setIsEchoConnected(false);
+
+    try {
+      // Defensive implementation to prevent crashes if Pusher internals are missing
+      const connection = Echo.connector?.pusher?.connection;
+      if (connection) {
+        connection.bind('connected', onConnected);
+        connection.bind('disconnected', onDisconnected);
+        if (connection.state === 'connected') setIsEchoConnected(true);
       }
+
+      const channel = Echo.private(`chat.${user.id}`);
+      
+      const handleMessage = (payload: any) => {
+        const e = payload?.message || payload;
+        if (!e || !isMountedRef.current) return;
+        
+        if (String(e.sender_id) === String(activePartnerIdRef.current)) {
+          setMessages(prev => {
+            const current = Array.isArray(prev) ? prev : [];
+            if (current.find(m => m && m.id === e.id)) return current;
+            return [...current, e];
+          });
+          api.post('/chats/mark-as-read', { partner_id: e.sender_id }).catch(() => {});
+        }
+        fetchChatsRef.current();
+      };
+
+      // Handle both standard and prefixed event names for maximum reliability
+      channel.listen('.MessageSent', handleMessage);
+      channel.listen('MessageSent', handleMessage);
+
+    } catch (err) {
+      console.warn("WebSocket node binding error:", err);
     }
 
     return () => {
-      if (Echo && user?.id) {
+      try {
+        const connection = Echo.connector?.pusher?.connection;
+        if (connection) {
+          connection.unbind('connected', onConnected);
+          connection.unbind('disconnected', onDisconnected);
+        }
         Echo.leave(`chat.${user.id}`);
-        listenerAttachedRef.current = false;
-      }
+      } catch (e) {}
     };
-  }, [user?.id, fetchChats]);
+  }, [user?.id]);
 
-  // Conversation history fetch
   useEffect(() => {
     const partnerId = activeConversation?.partner?.id;
-    if (!partnerId) {
-      activePartnerIdRef.current = null;
+    activePartnerIdRef.current = partnerId || null;
+
+    if (!partnerId || !user) {
       setMessages([]);
       return;
     }
 
-    activePartnerIdRef.current = partnerId;
     const fetchHistory = async () => {
       setIsLoading(true);
       try {
         const res = await api.get('/chats', { params: { partner_id: partnerId } });
+        if (!isMountedRef.current) return;
         const rawData = res.data?.data ?? res.data;
         setMessages(Array.isArray(rawData) ? rawData : []);
         
-        // Zero out unread count locally for better UX
-        setConversations(prev => prev.map(c => 
-          String(c?.partner?.id) === String(partnerId) ? { ...c, unreadCount: 0 } : c
-        ));
+        setConversations(prev => {
+          const current = Array.isArray(prev) ? prev : [];
+          return current.map(c => 
+            String(c?.partner?.id) === String(partnerId) ? { ...c, unreadCount: 0 } : c
+          );
+        });
         
         api.post('/chats/mark-as-read', { partner_id: partnerId }).catch(() => {});
       } catch (err) {
-        setMessages([]);
+        if (isMountedRef.current) setMessages([]);
       } finally {
-        setIsLoading(false);
+        if (isMountedRef.current) setIsLoading(false);
       }
     };
+    
     fetchHistory();
-  }, [activeConversation?.partner?.id]);
+  }, [activeConversation?.partner?.id, user]);
 
   useEffect(scrollToBottom, [messages, scrollToBottom]);
 
   const handleSend = async () => {
     const partnerId = activeConversation?.partner?.id;
-    if (!msg.trim() || !partnerId) return;
+    if (!msg.trim() || !partnerId || !user) return;
     
     const content = msg;
     setMsg('');
@@ -192,7 +238,10 @@ const Communication: React.FC = () => {
       created_at: new Date().toISOString()
     };
     
-    setMessages(prev => [...prev, tempMsg]);
+    setMessages(prev => {
+      const current = Array.isArray(prev) ? prev : [];
+      return [...current, tempMsg];
+    });
 
     try {
       const res = await api.post('/chats', {
@@ -200,24 +249,41 @@ const Communication: React.FC = () => {
         message: content
       });
       
+      if (!isMountedRef.current) return;
       const realMsg = res.data?.data ?? res.data;
-      setMessages(prev => prev.map(m => (m && m.id === tempMsg.id) ? realMsg : m));
+      setMessages(prev => {
+        const current = Array.isArray(prev) ? prev : [];
+        return current.map(m => (m && m.id === tempMsg.id) ? (realMsg?.message ? realMsg : (realMsg.data || realMsg)) : m);
+      });
       fetchChats();
     } catch (err) {
-      setMessages(prev => prev.filter(m => m && m.id !== tempMsg.id));
+      if (isMountedRef.current) {
+        setMessages(prev => {
+          const current = Array.isArray(prev) ? prev : [];
+          return current.filter(m => m && m.id !== tempMsg.id);
+        });
+      }
     }
   };
 
-  const safeConversations = useMemo(() => conversations.filter(Boolean), [conversations]);
-  const safeAvailableContacts = useMemo(() => availableContacts.filter(Boolean), [availableContacts]);
-  const safeMessages = useMemo(() => messages.filter(Boolean), [messages]);
+  const safeConversations = Array.isArray(conversations) ? conversations.filter(Boolean) : [];
+  const safeContacts = Array.isArray(availableContacts) ? availableContacts.filter(Boolean) : [];
 
   return (
     <div className="h-[calc(100vh-160px)] flex flex-col lg:flex-row gap-6 animate-in fade-in duration-500">
       <div className={`lg:w-80 flex flex-col gap-4 ${activeConversation ? 'hidden lg:flex' : 'flex w-full'}`}>
         <div className="card-premium p-4 flex-1 overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-4 px-2">
-            <h2 className="text-lg font-bold text-gray-800">Messages</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-800">Messages</h2>
+              {isEchoConnected ? (
+                /* Fix: Lucide icons do not support the 'title' prop. Wrapping in a span with the title attribute instead. */
+                <span title="Connected"><Wifi size={14} className="text-green-500" /></span>
+              ) : (
+                /* Fix: Lucide icons do not support the 'title' prop. Wrapping in a span with the title attribute instead. */
+                <span title="Offline"><WifiOff size={14} className="text-gray-300" /></span>
+              )}
+            </div>
             <button onClick={() => setShowNewChat(!showNewChat)} className="p-2 bg-blue-50 text-brand-primary rounded-xl transition-colors hover:bg-blue-100">
               <UserPlus size={18} />
             </button>
@@ -227,7 +293,7 @@ const Communication: React.FC = () => {
             <div className="mb-4 p-3 bg-blue-50 rounded-2xl border border-blue-100 animate-in slide-in-from-top-2">
                <p className="text-[10px] font-black text-gray-400 uppercase mb-3 ml-1">Available Contacts</p>
                <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                 {safeAvailableContacts.map((c, idx) => (
+                 {safeContacts.map((c, idx) => (
                    <button 
                      key={c?.id || `contact-${idx}`} 
                      onClick={() => { setActiveConversation({partner: c, lastMessage: '', lastMessageTime: '', unreadCount: 0}); setShowNewChat(false); }} 
@@ -237,6 +303,7 @@ const Communication: React.FC = () => {
                      <span className="text-xs font-bold text-gray-700 truncate">{c?.name || 'Unknown'}</span>
                    </button>
                  ))}
+                 {safeContacts.length === 0 && <p className="p-4 text-center text-[10px] font-bold text-gray-400">Empty directory</p>}
                </div>
             </div>
           )}
@@ -249,7 +316,7 @@ const Communication: React.FC = () => {
                 <button 
                   key={conv?.partner?.id || `conv-${idx}`} 
                   onClick={() => setActiveConversation(conv)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${String(activeConversation?.partner?.id) === String(conv?.partner?.id) ? 'bg-brand-primary text-white shadow-lg' : 'hover:bg-gray-50'}`}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${String(activeConversation?.partner?.id) === String(conv?.partner?.id) ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/20' : 'hover:bg-gray-50'}`}
                 >
                   <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
                     <User size={20} className={String(activeConversation?.partner?.id) === String(conv?.partner?.id) ? 'text-white/60' : 'text-gray-400'} />
@@ -258,12 +325,12 @@ const Communication: React.FC = () => {
                     <p className="text-sm font-bold truncate">{conv?.partner?.name || 'Unknown'}</p>
                     <p className={`text-[10px] truncate font-medium ${String(activeConversation?.partner?.id) === String(conv?.partner?.id) ? 'text-blue-100' : 'text-gray-400'}`}>{conv?.lastMessage}</p>
                   </div>
-                  {conv?.unreadCount > 0 && <div className="w-2 h-2 bg-brand-secondary rounded-full animate-pulse" />}
+                  {conv?.unreadCount > 0 && <div className="w-2.5 h-2.5 bg-brand-secondary rounded-full animate-pulse shadow-sm" />}
                 </button>
               ))
             ) : (
               <div className="text-center py-10 text-gray-400">
-                <p className="text-xs font-bold">No conversations found</p>
+                <p className="text-xs font-bold">No active threads</p>
               </div>
             )}
           </div>
@@ -275,13 +342,17 @@ const Communication: React.FC = () => {
           <>
             <div className="card-premium flex-1 p-6 flex flex-col overflow-hidden border-gray-100">
               <div className="flex items-center gap-3 pb-4 mb-4 border-b border-gray-50">
-                <button onClick={() => setActiveConversation(null)} className="lg:hidden text-gray-400 hover:text-brand-primary"><ChevronLeft size={24} /></button>
+                <button onClick={() => setActiveConversation(null)} className="lg:hidden text-gray-400 hover:text-brand-primary transition-colors"><ChevronLeft size={24} /></button>
                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-brand-primary font-black border border-blue-100">
                   {(activeConversation?.partner?.name || 'U')[0]}
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-800 leading-none">{activeConversation?.partner?.name || 'Chat'}</h3>
-                  <p className="text-[10px] font-bold text-green-500 uppercase mt-1">Secured Channel</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <p className="text-[10px] font-bold text-green-500 uppercase">Secured Channel</p>
+                    <span className="w-1 h-1 rounded-full bg-gray-200"></span>
+                    <p className="text-[10px] font-bold text-gray-300 uppercase">{isEchoConnected ? 'Real-time' : 'Cached'}</p>
+                  </div>
                 </div>
               </div>
 
@@ -292,11 +363,11 @@ const Communication: React.FC = () => {
                     <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Parsing Archive...</p>
                   </div>
                 ) : (
-                  safeMessages.map((m, idx) => {
+                  Array.isArray(messages) && messages.filter(Boolean).map((m, idx) => {
                     const isOwn = String(m.sender_id) === String(user?.id);
                     return (
-                      <div key={m.id || `msg-${idx}`} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
-                        <div className={`p-4 rounded-2xl max-w-[85%] ${isOwn ? 'bg-brand-primary text-white rounded-tr-none shadow-sm' : 'bg-gray-100 text-gray-700 rounded-tl-none border border-gray-200'}`}>
+                      <div key={m.id || `msg-${idx}`} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} animate-in fade-in duration-300`}>
+                        <div className={`p-4 rounded-2xl max-w-[85%] shadow-sm ${isOwn ? 'bg-brand-primary text-white rounded-tr-none' : 'bg-gray-100 text-gray-700 rounded-tl-none border border-gray-200'}`}>
                           <p className="text-sm font-medium leading-relaxed">{m.message}</p>
                         </div>
                         <p className="text-[9px] text-gray-400 font-bold mt-1 uppercase flex items-center gap-1">
@@ -317,7 +388,7 @@ const Communication: React.FC = () => {
                 onChange={(e) => setMsg(e.target.value)} 
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 placeholder="Compose message..." 
-                className="flex-1 text-sm font-bold outline-none py-3 px-4 resize-none bg-gray-50 rounded-xl focus:bg-white transition-all" 
+                className="flex-1 text-sm font-bold outline-none py-3 px-4 resize-none bg-gray-50 rounded-xl focus:bg-white transition-all custom-scrollbar" 
               />
               <button 
                 onClick={handleSend}
@@ -330,7 +401,7 @@ const Communication: React.FC = () => {
           </>
         ) : (
           <div className="card-premium flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60 border-gray-100">
-             <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center text-gray-200 mb-6">
+             <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center text-gray-200 mb-6 border border-gray-100 shadow-inner">
                 <MessageSquare size={48} strokeWidth={1} />
              </div>
              <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Encrypted Terminal</h3>

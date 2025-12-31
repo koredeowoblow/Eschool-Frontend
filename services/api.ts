@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 const BASE_URL = 'https://eschool-1.onrender.com/api/v1';
@@ -17,7 +16,11 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('eschool_token');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers.set) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -27,11 +30,20 @@ api.interceptors.response.use(
   async (error) => {
     const status = error.response?.status;
     const config = error.config as any;
+    const url = config.url || '';
 
-    if (status === 401 && !config.url?.includes('/login')) {
+    // Check if it's a broadcasting auth request or a chat-related endpoint
+    const isBroadcastingAuth = url.includes('broadcasting/auth');
+    const isChatEndpoint = url.includes('/chats');
+    const hasToken = !!localStorage.getItem('eschool_token');
+
+    // 401 handling: Only purge if we actually had a token (expired) 
+    // AND it's not a chat/handshake endpoint (to avoid logout loops)
+    if (status === 401 && !url.includes('/login') && !isBroadcastingAuth && !isChatEndpoint && hasToken) {
       if (!isRedirecting) {
         isRedirecting = true;
-        console.warn("Unauthenticated session. Executing purge...");
+        console.warn(`Unauthenticated session detected on [${url}]. Executing purge...`);
+        
         localStorage.removeItem('eschool_token');
         localStorage.removeItem('eschool_user');
         
@@ -39,13 +51,18 @@ api.interceptors.response.use(
           window.location.replace('#/login');
         }
         
-        // Reset flag after a delay to allow page transition
         setTimeout(() => { isRedirecting = false; }, 3000);
       }
       
       const authError = new Error('Session expired.') as any;
       authError.status = 401;
       return Promise.reject(authError);
+    }
+
+    // Silence errors that shouldn't break the app (broadcasting auth or chat synchronization)
+    if (status === 401 && (isBroadcastingAuth || isChatEndpoint || !hasToken)) {
+      console.debug(`401 suppressed on [${url}]: Handshake or chat sync delay.`);
+      return Promise.reject(error);
     }
 
     if (config && !config._isRetry) {
