@@ -34,11 +34,11 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     setIsLoadingNotifications(true);
     try {
       const res = await api.get('/notifications');
-      // Fix: Ensure we extract an array even if the API returns a metadata wrapper or single object
+      // Defensively extract data: Handle { data: [...] } or direct [...]
       const rawData = res.data?.data ?? res.data;
       setNotifications(Array.isArray(rawData) ? rawData : []);
     } catch (e: any) {
-      setNotifications([]); // Fallback to empty array on error
+      setNotifications([]); 
       if (e.status !== 404) {
         console.warn("Notification ledger sync issue:", e.message);
       }
@@ -50,7 +50,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const markAllAsRead = async () => {
     try {
       await api.post('/notifications/mark-as-read');
-      setNotifications(prev => Array.isArray(prev) ? prev.map(n => ({ ...n, read_at: new Date().toISOString() })) : []);
+      setNotifications(prev => {
+        const current = Array.isArray(prev) ? prev : [];
+        return current.map(n => ({ ...n, read_at: new Date().toISOString() }));
+      });
     } catch (e) {
       console.error("Failed to update notification status.");
     }
@@ -59,14 +62,12 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   useEffect(() => {
     fetchNotifications();
     
-    // Real-time Notification Listener (Via Echo Private Channel)
     if ((window as any).Echo && user) {
       const channel = (window as any).Echo.private(`App.Models.User.${user.id}`)
         .notification((notification: any) => {
           setNotifications(prev => {
             const current = Array.isArray(prev) ? prev : [];
-            // Deduplicate incoming real-time notifications
-            if (current.find(n => n.id === notification.id)) return current;
+            if (current.find(n => n && n.id === notification.id)) return current;
             return [notification, ...current];
           });
         });
@@ -88,7 +89,8 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         setIsSearching(true);
         try {
           const res = await api.get('/students', { params: { search: searchQuery, per_page: 5 } });
-          setSearchResults(res.data.data || []);
+          const resData = res.data?.data ?? res.data;
+          setSearchResults(Array.isArray(resData) ? resData : []);
         } catch (e) {
           setSearchResults([]);
         } finally {
@@ -113,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   }, []);
 
   const getNotificationIcon = (n: any) => {
-    const title = (n.title || n.data?.title || '').toLowerCase();
+    const title = (n?.title || n?.data?.title || '').toLowerCase();
     if (title.includes('payment') || title.includes('invoice') || title.includes('fee')) return { icon: Wallet, color: 'text-emerald-500' };
     if (title.includes('assignment') || title.includes('exam')) return { icon: Clock, color: 'text-blue-500' };
     if (title.includes('result') || title.includes('grade')) return { icon: Trophy, color: 'text-orange-500' };
@@ -121,8 +123,8 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     return { icon: Bell, color: 'text-gray-400' };
   };
 
-  // Fix: Safeguard unreadCount calculation against non-array notifications state
-  const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.read_at).length : 0;
+  // Fix: Aggressive safeguard against non-array state for the counter
+  const unreadCount = (Array.isArray(notifications) ? notifications : []).filter(n => n && !n.read_at).length;
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-20 px-6 glass-effect border-b border-gray-200/50">
@@ -144,7 +146,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             />
             {isSearching && <Loader2 size={14} className="animate-spin text-brand-primary" />}
           </div>
-          {searchResults.length > 0 && (
+          {Array.isArray(searchResults) && searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
               {searchResults.map(s => (
                 <button 
@@ -153,7 +155,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-blue-50 text-brand-primary flex items-center justify-center"><GraduationCap size={16}/></div>
-                  <div><p className="text-xs font-bold text-gray-800">{s.full_name}</p><p className="text-[10px] text-gray-400 uppercase font-black">{s.admission_number}</p></div>
+                  <div><p className="text-xs font-bold text-gray-800">{s.full_name || s.name}</p><p className="text-[10px] text-gray-400 uppercase font-black">{s.admission_number}</p></div>
                 </button>
               ))}
             </div>
@@ -194,16 +196,16 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 ) : (Array.isArray(notifications) && notifications.length > 0) ? (
                   notifications.map(n => {
                     const { icon: Icon, color } = getNotificationIcon(n);
-                    const isUnread = !n.read_at;
+                    const isUnread = !n?.read_at;
                     return (
-                      <div key={n.id} className={`p-4 hover:bg-gray-50/80 transition-colors flex gap-4 border-b border-gray-50 last:border-0 relative ${isUnread ? 'bg-blue-50/20' : ''}`}>
+                      <div key={n?.id} className={`p-4 hover:bg-gray-50/80 transition-colors flex gap-4 border-b border-gray-50 last:border-0 relative ${isUnread ? 'bg-blue-50/20' : ''}`}>
                         {isUnread && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-brand-primary rounded-r-full"></div>}
                         <div className={`w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center shrink-0 ${color}`}><Icon size={20}/></div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-gray-800 truncate">{n.title || n.data?.title || 'System Update'}</p>
-                          <p className="text-xs text-gray-500 font-medium line-clamp-2 mt-0.5">{n.message || n.body || n.data?.message || 'New institutional update received.'}</p>
+                          <p className="text-sm font-bold text-gray-800 truncate">{n?.title || n?.data?.title || 'System Update'}</p>
+                          <p className="text-xs text-gray-500 font-medium line-clamp-2 mt-0.5">{n?.message || n?.body || n?.data?.message || 'New institutional update received.'}</p>
                           <div className="flex items-center justify-between mt-2">
-                            <p className="text-[9px] text-gray-400 font-bold uppercase flex items-center gap-1"><Clock size={10} /> {n.created_at_human || n.time || 'Just now'}</p>
+                            <p className="text-[9px] text-gray-400 font-bold uppercase flex items-center gap-1"><Clock size={10} /> {n?.created_at_human || n?.time || 'Just now'}</p>
                             {isUnread && <div className="w-1.5 h-1.5 rounded-full bg-brand-primary shadow-[0_0_8px_rgba(37,99,235,0.5)]"></div>}
                           </div>
                         </div>

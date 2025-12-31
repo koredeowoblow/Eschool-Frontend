@@ -3,7 +3,8 @@ import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
-  children: ReactNode;
+  // Fix: Making children optional helps resolve JSX prop matching issues in some environments
+  children?: ReactNode;
 }
 
 interface State {
@@ -13,12 +14,17 @@ interface State {
 
 /**
  * ErrorBoundary component to catch rendering errors in child components.
+ * Fix: Explicitly extend React.Component to resolve issues where state, props, and setState are not recognized.
  */
 export class ErrorBoundary extends React.Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null
-  };
+  constructor(props: Props) {
+    super(props);
+    // Fix: Access state through inheritance from React.Component
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -26,17 +32,17 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log fatal crashes for diagnostic purposes
-    console.error('Uncaught application error:', error, errorInfo);
+    console.error('Critical Render Error Captured:', error, errorInfo);
   }
 
-  // Handle resetting the error state
   private handleReset = () => {
-    // Accessing setState from React.Component
+    // Fix: Access setState through inheritance from React.Component
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
   public render(): ReactNode {
+    // Fix: Access state through inheritance from React.Component
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
@@ -45,9 +51,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <AlertTriangle size={40} />
             </div>
             <div className="space-y-2">
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">System Encountered an Issue</h1>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">System encountered an issue</h1>
               <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                The application encountered an unexpected state. Your session is safe, please try reloading.
+                The application encountered an unexpected state. Your session data is preserved, please try reloading.
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -69,7 +75,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Accessing children from props inherited from React.Component
+    // Fix: Access props through inheritance from React.Component
     return this.props.children;
   }
 }

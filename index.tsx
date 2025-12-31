@@ -20,6 +20,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
+    {/* Fix: ErrorBoundary now correctly identifies nested children as props after definition fix */}
     <ErrorBoundary>
       <NotificationProvider>
         <App />
