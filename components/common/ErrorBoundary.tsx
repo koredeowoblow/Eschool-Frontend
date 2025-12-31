@@ -1,9 +1,7 @@
-
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
-  // Fix: Making children optional helps resolve JSX prop matching issues in some environments
   children?: ReactNode;
 }
 
@@ -14,16 +12,17 @@ interface State {
 
 /**
  * ErrorBoundary component to catch rendering errors in child components.
- * Fix: Explicitly extend React.Component to resolve issues where state, props, and setState are not recognized.
  */
-export class ErrorBoundary extends React.Component<Props, State> {
+// Fix: Explicitly using named 'Component' import ensures TypeScript correctly identifies inherited members like state, props, and setState.
+export class ErrorBoundary extends Component<Props, State> {
+  // Fix: Defining state at class level ensures member visibility and type safety within the component lifecycle.
+  public state: State = {
+    hasError: false,
+    error: null
+  };
+
   constructor(props: Props) {
     super(props);
-    // Fix: Access state through inheritance from React.Component
-    this.state = {
-      hasError: false,
-      error: null
-    };
   }
 
   public static getDerivedStateFromError(error: Error): State {
@@ -36,13 +35,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = () => {
-    // Fix: Access setState through inheritance from React.Component
+    // Fix: setState is a standard method of Component, now correctly recognized through explicit inheritance.
     this.setState({ hasError: false, error: null });
     window.location.href = '/';
   };
 
   public render(): ReactNode {
-    // Fix: Access state through inheritance from React.Component
+    // Fix: Access to this.state is valid for classes extending standard React Component.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-center">
@@ -75,7 +74,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Fix: Access props through inheritance from React.Component
+    // Fix: props access is a standard member of classes extending Component, used here to render children nodes.
     return this.props.children;
   }
 }

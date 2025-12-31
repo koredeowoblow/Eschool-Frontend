@@ -9,6 +9,17 @@ import { useSelectOptions } from '../hooks/useSelectOptions';
 import { useFormSubmit } from '../hooks/useFormSubmit';
 import { useNotification } from '../context/NotificationContext';
 
+// Define fetchers outside to ensure stable references for useDataTable
+const fetchBooks = async (params: any) => {
+  const res = await api.get('/library/books', { params });
+  return res.data;
+};
+
+const fetchBorrowings = async (params: any) => {
+  const res = await api.get('/library/borrowings', { params });
+  return res.data;
+};
+
 const Library: React.FC = () => {
   const [activeView, setActiveView] = useState<'inventory' | 'borrowings'>('inventory');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
@@ -16,16 +27,6 @@ const Library: React.FC = () => {
   
   const { options: studentOptions } = useSelectOptions('/students');
   const { options: bookOptions } = useSelectOptions('/library/books', 'title');
-
-  const fetchBooks = async (params: any) => {
-    const res = await api.get('/library/books', { params });
-    return res.data;
-  };
-
-  const fetchBorrowings = async (params: any) => {
-    const res = await api.get('/library/borrowings', { params });
-    return res.data;
-  };
 
   const inventoryTable = useDataTable(fetchBooks);
   const borrowingsTable = useDataTable(fetchBorrowings);
@@ -43,7 +44,6 @@ const Library: React.FC = () => {
   );
 
   const handleReturn = async (id: string) => {
-    // Proceed directly without confirm() as it is blocked in sandbox
     try {
       await api.patch(`/library/borrowings/${id}/return`); 
       showNotification("Asset returned to inventory.", "success");

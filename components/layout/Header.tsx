@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Menu, Search, Bell, User as UserIcon, X, Clock, 
   Loader2, GraduationCap, Inbox, Wallet, Trophy, MessageSquare 
@@ -34,13 +34,12 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     setIsLoadingNotifications(true);
     try {
       const res = await api.get('/notifications');
-      // Defensively extract data: Handle { data: [...] } or direct [...]
       const rawData = res.data?.data ?? res.data;
       setNotifications(Array.isArray(rawData) ? rawData : []);
     } catch (e: any) {
       setNotifications([]); 
       if (e.status !== 404) {
-        console.warn("Notification ledger sync issue:", e.message);
+        console.warn("Notification sync issue:", e.message);
       }
     } finally {
       setIsLoadingNotifications(false);
@@ -52,29 +51,34 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       await api.post('/notifications/mark-as-read');
       setNotifications(prev => {
         const current = Array.isArray(prev) ? prev : [];
-        return current.map(n => ({ ...n, read_at: new Date().toISOString() }));
+        return current.map(n => n ? ({ ...n, read_at: new Date().toISOString() }) : n);
       });
     } catch (e) {
-      console.error("Failed to update notification status.");
+      console.error("Batch update failed.");
     }
   };
 
   useEffect(() => {
     fetchNotifications();
     
-    if ((window as any).Echo && user) {
-      const channel = (window as any).Echo.private(`App.Models.User.${user.id}`)
-        .notification((notification: any) => {
-          setNotifications(prev => {
-            const current = Array.isArray(prev) ? prev : [];
-            if (current.find(n => n && n.id === notification.id)) return current;
-            return [notification, ...current];
+    const Echo = (window as any).Echo;
+    if (Echo && user?.id) {
+      try {
+        const channel = Echo.private(`App.Models.User.${user.id}`)
+          .notification((notification: any) => {
+            setNotifications(prev => {
+              const current = Array.isArray(prev) ? prev : [];
+              if (notification?.id && current.find(n => n && n.id === notification.id)) return current;
+              return notification ? [notification, ...current] : current;
+            });
           });
-        });
 
-      return () => {
-        (window as any).Echo.leave(`App.Models.User.${user.id}`);
-      };
+        return () => {
+          Echo.leave(`App.Models.User.${user.id}`);
+        };
+      } catch (err) {
+        console.warn("Real-time notifications socket inactive.");
+      }
     }
   }, [user?.id]);
 
@@ -123,8 +127,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     return { icon: Bell, color: 'text-gray-400' };
   };
 
-  // Fix: Aggressive safeguard against non-array state for the counter
-  const unreadCount = (Array.isArray(notifications) ? notifications : []).filter(n => n && !n.read_at).length;
+  const unreadCount = useMemo(() => 
+    (Array.isArray(notifications) ? notifications : []).filter(n => n && !n.read_at).length, 
+    [notifications]
+  );
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-20 px-6 glass-effect border-b border-gray-200/50">
@@ -141,21 +147,21 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Jump to student record..." 
+              placeholder="Search registry..." 
               className="bg-transparent border-none outline-none text-sm w-48 lg:w-64 font-medium"
             />
             {isSearching && <Loader2 size={14} className="animate-spin text-brand-primary" />}
           </div>
           {Array.isArray(searchResults) && searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-              {searchResults.map(s => (
+              {searchResults.map((s, idx) => (
                 <button 
-                  key={s.id} 
+                  key={s?.id || `search-${idx}`} 
                   onClick={() => { navigate(`/students/${s.id}`); setSearchResults([]); setSearchQuery(''); }}
                   className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-blue-50 text-brand-primary flex items-center justify-center"><GraduationCap size={16}/></div>
-                  <div><p className="text-xs font-bold text-gray-800">{s.full_name || s.name}</p><p className="text-[10px] text-gray-400 uppercase font-black">{s.admission_number}</p></div>
+                  <div><p className="text-xs font-bold text-gray-800">{s?.full_name || s?.name}</p><p className="text-[10px] text-gray-400 uppercase font-black">{s?.admission_number}</p></div>
                 </button>
               ))}
             </div>
@@ -194,16 +200,17 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Querying Cloud Alerts...</p>
                   </div>
                 ) : (Array.isArray(notifications) && notifications.length > 0) ? (
-                  notifications.map(n => {
+                  notifications.map((n, idx) => {
+                    if (!n) return null;
                     const { icon: Icon, color } = getNotificationIcon(n);
                     const isUnread = !n?.read_at;
                     return (
-                      <div key={n?.id} className={`p-4 hover:bg-gray-50/80 transition-colors flex gap-4 border-b border-gray-50 last:border-0 relative ${isUnread ? 'bg-blue-50/20' : ''}`}>
+                      <div key={n?.id || `notif-${idx}`} className={`p-4 hover:bg-gray-50/80 transition-colors flex gap-4 border-b border-gray-50 last:border-0 relative ${isUnread ? 'bg-blue-50/20' : ''}`}>
                         {isUnread && <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-brand-primary rounded-r-full"></div>}
                         <div className={`w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center shrink-0 ${color}`}><Icon size={20}/></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-gray-800 truncate">{n?.title || n?.data?.title || 'System Update'}</p>
-                          <p className="text-xs text-gray-500 font-medium line-clamp-2 mt-0.5">{n?.message || n?.body || n?.data?.message || 'New institutional update received.'}</p>
+                          <p className="text-xs text-gray-500 font-medium line-clamp-2 mt-0.5">{n?.message || n?.body || n?.data?.message || 'New update received.'}</p>
                           <div className="flex items-center justify-between mt-2">
                             <p className="text-[9px] text-gray-400 font-bold uppercase flex items-center gap-1"><Clock size={10} /> {n?.created_at_human || n?.time || 'Just now'}</p>
                             {isUnread && <div className="w-1.5 h-1.5 rounded-full bg-brand-primary shadow-[0_0_8px_rgba(37,99,235,0.5)]"></div>}
@@ -220,7 +227,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   </div>
                 )}
               </div>
-              <button className="w-full py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-t border-gray-50 hover:bg-gray-50 hover:text-brand-primary transition-all">View All Activity Logs</button>
+              <button className="w-full py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-t border-gray-50 hover:bg-gray-50 hover:text-brand-primary transition-all">View History</button>
             </div>
           )}
           <button onClick={() => navigate('/profile')} className="flex items-center gap-2 p-1.5 md:px-3 text-gray-600 hover:bg-white rounded-full transition-colors border border-transparent hover:border-gray-200">

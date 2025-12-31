@@ -22,23 +22,27 @@ export function useDataTable<T>(fetchFn: (params: FetchParams) => Promise<ApiRes
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Record<string, any>>({});
   
-  // Use ref to track active request and prevent race conditions
   const requestCountRef = useRef(0);
+  const fetchFnRef = useRef(fetchFn);
+
+  // Keep the ref updated with the latest function from the component
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  }, [fetchFn]);
 
   const loadData = useCallback(async () => {
     const currentRequestId = ++requestCountRef.current;
     setIsLoading(true);
     
     try {
-      const result = await fetchFn({ page, search, filters });
+      // Execute using the stable ref to avoid dependency-induced loops
+      const result = await fetchFnRef.current({ page, search, filters });
       
-      // If a newer request has started, ignore this result
       if (currentRequestId !== requestCountRef.current) return;
 
       let extractedData: T[] = [];
       let meta: any = null;
 
-      // Handle varied Laravel Response Shapes
       if (result) {
         if (result.data && Array.isArray(result.data.data)) {
           extractedData = result.data.data;
@@ -64,7 +68,7 @@ export function useDataTable<T>(fetchFn: (params: FetchParams) => Promise<ApiRes
       }
     } catch (error) {
       if (currentRequestId === requestCountRef.current) {
-        console.warn("Table data processing failed, defaulting to empty array:", error);
+        console.warn("DataTable fetch aborted or failed:", error);
         setData([]);
       }
     } finally {
@@ -72,11 +76,12 @@ export function useDataTable<T>(fetchFn: (params: FetchParams) => Promise<ApiRes
         setIsLoading(false);
       }
     }
-  }, [page, search, JSON.stringify(filters), fetchFn]);
+    // Deeply stringify filters to ensure the effect only fires on actual value changes
+  }, [page, search, JSON.stringify(filters)]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData]); 
 
   return {
     data,

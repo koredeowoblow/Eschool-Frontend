@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Users, UserPlus, Calendar, Wallet, TrendingUp, Sparkles, Send, Loader2, Building, 
@@ -29,8 +30,6 @@ const Dashboard: React.FC = () => {
       setIsLoading(true);
       try {
         const statsReq = api.get('/dashboard/stats');
-        
-        // Handle activities 404 gracefully without interrupting stats load
         const activityReq = api.get('/dashboard/activities').catch((e: any) => {
           if (e.status !== 404) console.warn("Activity fetch error:", e.message);
           return { data: { data: [] } };
@@ -41,7 +40,7 @@ const Dashboard: React.FC = () => {
         setStats(statsRes.data.data || statsRes.data);
         setActivities(activityRes.data.data || activityRes.data || []);
       } catch (err) {
-        console.warn("Dashboard statistics could not be fully loaded.");
+        console.warn("Dashboard stats sync delayed.");
       } finally {
         setIsLoading(false);
       }
@@ -64,10 +63,10 @@ const Dashboard: React.FC = () => {
     if (user?.role === UserRole.SUPER_ADMIN && stats.platform) {
       return (
         <>
-          <StatsCard label="Schools" value={stats.platform.total_schools} icon={Building} color="bg-brand-primary" />
-          <StatsCard label="Active Schools" value={stats.platform.active_schools} icon={Activity} color="bg-green-600" />
-          <StatsCard label="Users" value={stats.platform.total_users.toLocaleString()} icon={Users} color="bg-blue-500" />
-          <StatsCard label="Total Students" value={stats.platform.total_students.toLocaleString()} icon={UserPlus} color="bg-indigo-600" />
+          <StatsCard label="Schools" value={stats.platform.total_schools || 0} icon={Building} color="bg-brand-primary" />
+          <StatsCard label="Active Schools" value={stats.platform.active_schools || 0} icon={Activity} color="bg-green-600" />
+          <StatsCard label="Users" value={(stats.platform.total_users || 0).toLocaleString()} icon={Users} color="bg-blue-500" />
+          <StatsCard label="Total Students" value={(stats.platform.total_students || 0).toLocaleString()} icon={UserPlus} color="bg-indigo-600" />
         </>
       );
     }
@@ -75,9 +74,9 @@ const Dashboard: React.FC = () => {
     if (user?.role === UserRole.STUDENT && stats.student) {
       return (
         <>
-          <StatsCard label="Attendance" value={`${Math.round(stats.student.attendance)}%`} icon={Calendar} color="bg-brand-primary" />
-          <StatsCard label="Assignments" value={stats.student.assignments} icon={Clock} color="bg-orange-500" />
-          <StatsCard label="Grades" value={stats.student.avg_marks.toFixed(1)} icon={Award} color="bg-brand-secondary" />
+          <StatsCard label="Attendance" value={`${Math.round(stats.student.attendance || 0)}%`} icon={Calendar} color="bg-brand-primary" />
+          <StatsCard label="Assignments" value={stats.student.assignments || 0} icon={Clock} color="bg-orange-500" />
+          <StatsCard label="Grades" value={(stats.student.avg_marks || 0).toFixed(1)} icon={Award} color="bg-brand-secondary" />
         </>
       );
     }
@@ -96,8 +95,8 @@ const Dashboard: React.FC = () => {
     if (!stats?.charts) return [];
     const chartKey = user?.role === UserRole.SUPER_ADMIN ? 'registration_trends' : 'attendance_trends';
     const chart = stats.charts[chartKey] || Object.values(stats.charts)[0];
-    if (!chart) return [];
-    return chart.labels.map((label, i) => ({ label, val: chart.data[i] }));
+    if (!chart || !Array.isArray(chart.labels) || !Array.isArray(chart.data)) return [];
+    return chart.labels.map((label, i) => ({ label, val: chart.data[i] || 0 }));
   };
 
   return (
@@ -145,7 +144,7 @@ const Dashboard: React.FC = () => {
                 </h3>
                 <div className="space-y-4">
                    {activities.length > 0 ? activities.slice(0, 4).map((act, i) => (
-                     <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                     <div key={`act-${i}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                         <div className="flex-1">
                            <p className="text-xs font-bold text-gray-800">{act.message || act.title}</p>
                            <p className="text-[10px] text-gray-400 font-bold uppercase">{act.time || 'Today'}</p>
@@ -198,7 +197,7 @@ const Dashboard: React.FC = () => {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Recent Events</h3>
             <div className="space-y-4">
                {activities.length > 0 ? activities.map((item, idx) => (
-                 <div key={idx} className="flex gap-4">
+                 <div key={`event-${idx}`} className="flex gap-4">
                     <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-1.5 shrink-0"></div>
                     <div>
                        <p className="text-xs font-bold text-gray-800 leading-tight">{item.message}</p>

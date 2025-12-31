@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { User, UserRole } from '../types';
 import api from '../services/api';
 import { initEcho } from '../services/echo';
@@ -40,20 +41,26 @@ const mapToUserRole = (roles: string[]): UserRole => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [echo, setEcho] = useState<any>(null);
+  const echoRef = useRef<any>(null);
+  const activeTokenRef = useRef<string | null>(null);
 
   const initializeEcho = useCallback((token: string) => {
+    // Prevent reconnection if already connected with same token
+    if (activeTokenRef.current === token && echoRef.current) return;
+    
     try {
-      if (echo) echo.disconnect();
+      if (echoRef.current) {
+        echoRef.current.disconnect();
+      }
       const apiUrl = 'https://eschool-1.onrender.com/api/v1';
-      // Pass the base API URL to initEcho which handles hostname extraction
       const echoInstance = initEcho(token, apiUrl);
-      setEcho(echoInstance);
+      echoRef.current = echoInstance;
+      activeTokenRef.current = token;
       (window as any).Echo = echoInstance;
     } catch (e) {
       console.warn("Realtime engine initialization failed.");
     }
-  }, [echo]);
+  }, []);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('eschool_user');
@@ -70,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [initializeEcho]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -113,11 +120,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
-    if (echo) {
-      try { echo.disconnect(); } catch (e) {}
+    if (echoRef.current) {
+      try { echoRef.current.disconnect(); } catch (e) {}
     }
     setUser(null);
-    setEcho(null);
+    echoRef.current = null;
+    activeTokenRef.current = null;
     (window as any).Echo = undefined;
     localStorage.removeItem('eschool_token');
     localStorage.removeItem('eschool_user');
