@@ -16,19 +16,22 @@ export const initEcho = (apiUrl: string, token: string) => {
     return null;
   }
 
+  const cleanToken = token.trim().replace(/^["'](.+)["']$/, '$1');
+  console.debug(`[Echo Init] Initializing with token: ${cleanToken.substring(0, 10)}...`);
+
   return new Echo({
     broadcaster: 'reverb',
-    key: '5fvfekx0ohg4absh6lpx', 
+    key: '5fvfekx0ohg4absh6lpx',
     wsHost: 'eschool-1.onrender.com',
     wsPort: 443,
     wssPort: 443,
     forceTLS: true,
     enabledTransports: ['ws', 'wss'],
     // Using the precise endpoint specified for the eSchool production environment
-    authEndpoint: `${apiUrl}/broadcasting/auth`, 
+    authEndpoint: `${apiUrl}/broadcasting/auth`,
     auth: {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${cleanToken}`,
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       },

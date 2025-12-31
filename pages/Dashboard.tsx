@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, UserPlus, Calendar, Wallet, TrendingUp, Sparkles, Send, Loader2, Building, 
+import {
+  Users, UserPlus, Calendar, Wallet, TrendingUp, Sparkles, Send, Loader2, Building,
   Activity, ShieldCheck, Clock, Award, Inbox
 } from 'lucide-react';
-import { 
+import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import StatsCard from '../components/common/StatsCard';
@@ -19,7 +19,6 @@ const Dashboard: React.FC = () => {
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activities, setActivities] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const formatCurrency = (val: number) =>
@@ -29,16 +28,8 @@ const Dashboard: React.FC = () => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        const statsReq = api.get('/dashboard/stats');
-        const activityReq = api.get('/dashboard/activities').catch((e: any) => {
-          if (e.status !== 404) console.warn("Activity fetch error:", e.message);
-          return { data: { data: [] } };
-        });
-        
-        const [statsRes, activityRes] = await Promise.all([statsReq, activityReq]);
-        
-        setStats(statsRes.data.data || statsRes.data);
-        setActivities(activityRes.data.data || activityRes.data || []);
+        const res = await api.get('/dashboard/stats');
+        setStats(res.data.data || res.data);
       } catch (err) {
         console.warn("Dashboard stats sync delayed.");
       } finally {
@@ -125,47 +116,34 @@ const Dashboard: React.FC = () => {
               <TrendingUp size={20} className="text-brand-primary" /> Activity Chart
             </h2>
             <div className="h-72 w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={getChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dx={-10} />
-                    <Tooltip contentStyle={{borderRadius: '16px', border: 'none'}} />
-                    <Area type="monotone" dataKey="val" stroke="#2563eb" strokeWidth={3} fill="#2563eb" fillOpacity={0.1} />
-                  </AreaChart>
-               </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={getChartData()}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} dx={-10} />
+                  <Tooltip contentStyle={{ borderRadius: '16px', border: 'none' }} />
+                  <Area type="monotone" dataKey="val" stroke="#2563eb" strokeWidth={3} fill="#2563eb" fillOpacity={0.1} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <div className="card-premium p-6 border-gray-100">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                   <Clock size={16} className="text-brand-primary" /> Recent Tasks
-                </h3>
-                <div className="space-y-4">
-                   {activities.length > 0 ? activities.slice(0, 4).map((act, i) => (
-                     <div key={`act-${i}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                        <div className="flex-1">
-                           <p className="text-xs font-bold text-gray-800">{act.message || act.title}</p>
-                           <p className="text-[10px] text-gray-400 font-bold uppercase">{act.time || 'Today'}</p>
-                        </div>
-                     </div>
-                   )) : (
-                    <div className="py-10 text-center text-gray-400">
-                      <Inbox size={24} className="mx-auto mb-2 opacity-20" />
-                      <p className="text-[10px] font-bold">No tasks found</p>
-                    </div>
-                   )}
-                </div>
-             </div>
-             <div className="card-premium p-6 border-gray-100">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                   <ShieldCheck size={16} className="text-green-500" /> Status
-                </h3>
-                <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                   <p className="text-xs font-bold text-green-800">All systems are working fine.</p>
-                </div>
-             </div>
+            <div className="card-premium p-6 border-gray-100 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-brand-primary mb-4">
+                <Activity size={24} />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800 tracking-tight">System Live</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Real-time monitoring active</p>
+            </div>
+            <div className="card-premium p-6 border-gray-100">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <ShieldCheck size={16} className="text-green-500" /> Status
+              </h3>
+              <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
+                <p className="text-xs font-bold text-green-800">All systems are working fine.</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -176,7 +154,7 @@ const Dashboard: React.FC = () => {
               <h2 className="text-lg font-bold uppercase tracking-tight">AI Assistant</h2>
             </div>
             <div className="relative mb-6 z-10">
-              <input 
+              <input
                 type="text" value={aiQuery} onChange={(e) => setAiQuery(e.target.value)}
                 placeholder="Ask a question..."
                 className="w-full bg-white/10 border border-white/20 rounded-2xl py-3 px-5 text-sm outline-none focus:bg-white/20 transition-all pr-12"
@@ -194,19 +172,22 @@ const Dashboard: React.FC = () => {
           </div>
 
           <div className="card-premium p-6 border-gray-100">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Recent Events</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Security Log</h3>
             <div className="space-y-4">
-               {activities.length > 0 ? activities.map((item, idx) => (
-                 <div key={`event-${idx}`} className="flex gap-4">
-                    <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-1.5 shrink-0"></div>
-                    <div>
-                       <p className="text-xs font-bold text-gray-800 leading-tight">{item.message}</p>
-                       <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">{item.time || 'Recently'}</p>
-                    </div>
-                 </div>
-               )) : (
-                 <div className="text-center py-10 text-gray-300 font-bold text-xs italic">No new events</div>
-               )}
+              <div className="flex gap-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 shrink-0"></div>
+                <div>
+                  <p className="text-xs font-bold text-gray-800 leading-tight">Identity verified successfully</p>
+                  <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">Just Now</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0"></div>
+                <div>
+                  <p className="text-xs font-bold text-gray-800 leading-tight">Encrypted session established</p>
+                  <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase">Today</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

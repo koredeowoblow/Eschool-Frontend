@@ -5,7 +5,7 @@ let isRedirecting = false;
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 120000, 
+  timeout: 120000,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -16,11 +16,22 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('eschool_token');
   if (token) {
-    if (config.headers.set) {
-      config.headers.set('Authorization', `Bearer ${token}`);
+    // Trim and normalize token to prevent whitespace issues
+    const cleanToken = token.trim().replace(/^["'](.+)["']$/, '$1');
+
+    // Explicitly use the set method for headers if available (Axios 1.x+)
+    if (config.headers && typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${cleanToken}`);
     } else {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${cleanToken}`;
     }
+
+    // Log for debugging (only in development)
+    if (window.location.hostname === 'localhost') {
+      console.debug(`[API Request] ${config.method?.toUpperCase()} ${config.url} | Auth: Bearer ${cleanToken.substring(0, 10)}...`);
+    }
+  } else if (window.location.hostname === 'localhost') {
+    console.debug(`[API Request] ${config.method?.toUpperCase()} ${config.url} | No Token Found`);
   }
   return config;
 });
@@ -43,17 +54,17 @@ api.interceptors.response.use(
       if (!isRedirecting) {
         isRedirecting = true;
         console.warn(`Unauthenticated session detected on [${url}]. Executing purge...`);
-        
+
         localStorage.removeItem('eschool_token');
         localStorage.removeItem('eschool_user');
-        
+
         if (!window.location.hash.includes('/login')) {
           window.location.replace('#/login');
         }
-        
+
         setTimeout(() => { isRedirecting = false; }, 3000);
       }
-      
+
       const authError = new Error('Session expired.') as any;
       authError.status = 401;
       return Promise.reject(authError);
@@ -67,11 +78,11 @@ api.interceptors.response.use(
 
     if (config && !config._isRetry) {
       const shouldRetry = (status && [502, 503, 504].includes(status)) || error.code === 'ECONNABORTED';
-      
+
       if (shouldRetry && (config.retryCount || 0) < 3) {
         config.retryCount = (config.retryCount || 0) + 1;
         const delay = config.retryCount * 2000;
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         config._isRetry = true;
         return api(config);
