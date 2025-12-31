@@ -188,16 +188,26 @@ const Communication: React.FC = () => {
       const channel = Echo.private(`chat.${user.id}`);
 
       const handleMessage = (payload: any) => {
-        const e = payload?.message || payload;
+        // Handle Laravel event payload wrapping (e.g. { chat: {...} }) or flat payload
+        const e = payload?.chat || payload;
+
         if (!e || !isMountedRef.current) return;
 
-        if (String(e.sender_id) === String(activePartnerIdRef.current)) {
+        // Robustly get sender ID (handle flat payload or nested sender object)
+        const incomingSenderId = e.sender_id || e.sender?.id;
+        const activePartnerId = activePartnerIdRef.current;
+
+        if (incomingSenderId && activePartnerId && String(incomingSenderId) === String(activePartnerId)) {
           setMessages(prev => {
             const current = Array.isArray(prev) ? prev : [];
             if (current.find(m => m && m.id === e.id)) return current;
             return [...current, e];
           });
-          api.patch('/chats/mark-as-read', { partner_id: e.sender_id }).catch(() => { });
+          api.patch('/chats/mark-as-read', {
+            partner_id: e.sender_id,
+            receiver_id: e.sender_id,
+            message: 'read'
+          }).catch(() => { });
         }
         fetchChatsRef.current();
       };
@@ -246,7 +256,11 @@ const Communication: React.FC = () => {
           );
         });
 
-        api.patch('/chats/mark-as-read', { partner_id: partnerId }).catch(() => { });
+        api.patch('/chats/mark-as-read', {
+          partner_id: partnerId,
+          receiver_id: partnerId,
+          message: 'read'
+        }).catch(() => { });
       } catch (err) {
         if (isMountedRef.current) setMessages([]);
       } finally {

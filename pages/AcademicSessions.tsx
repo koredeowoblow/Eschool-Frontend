@@ -9,6 +9,8 @@ const AcademicSessions: React.FC = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSession, setEditingSession] = useState<any>(null);
   const [isTermModalOpen, setIsTermModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
@@ -25,11 +27,25 @@ const AcademicSessions: React.FC = () => {
   };
 
   const [formData, setFormData] = useState({ name: '', is_current: true });
+  const openEditModal = (session: any) => {
+    setIsEditMode(true);
+    setEditingSession(session);
+    setFormData({ name: session.name || '', is_current: session.is_current || false });
+    setIsModalOpen(true);
+  };
+
   const { submit: submitSession, isSubmitting: isSubmittingSession } = useFormSubmit(
-    (data) => api.post('/school-sessions', data),
+    (data) => {
+      if (isEditMode && editingSession) {
+        return api.put(`/school-sessions/${editingSession.id}`, data);
+      }
+      return api.post('/school-sessions', data);
+    },
     {
       onSuccess: () => {
         setIsModalOpen(false);
+        setIsEditMode(false);
+        setEditingSession(null);
         setFormData({ name: '', is_current: true });
         fetchSessions();
       }
@@ -72,7 +88,7 @@ const AcademicSessions: React.FC = () => {
       ) : sessions.length > 0 ? (
         <div className="space-y-4">
           {sessions.map((session) => (
-            <div key={session.id} className={`card-premium p-8 border ${session.is_current ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-2xl shadow-brand-primary/5' : 'border-gray-100'}`}>
+            <div key={session.id} onClick={() => openEditModal(session)} className={`card-premium p-8 border cursor-pointer ${session.is_current ? 'border-brand-primary ring-4 ring-brand-primary/5 shadow-2xl shadow-brand-primary/5' : 'border-gray-100'}`}>
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${session.is_current ? 'bg-brand-primary text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
@@ -84,16 +100,16 @@ const AcademicSessions: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => { setSelectedSessionId(session.id); setIsTermModalOpen(true); }}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-50 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-sm"
                   >
-                    <Plus size={14}/> Add Term
+                    <Plus size={14} /> Add Term
                   </button>
-                  <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-all"><MoreVertical size={20}/></button>
+                  <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-all"><MoreVertical size={20} /></button>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {session.terms?.length > 0 ? session.terms.map((term: any) => (
                   <div key={term.id} className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${term.is_current ? 'bg-green-50 border-green-100 text-green-700' : 'bg-gray-50/50 border-gray-100 text-gray-600'}`}>
@@ -101,7 +117,7 @@ const AcademicSessions: React.FC = () => {
                       <Clock size={16} className={term.is_current ? 'text-green-500' : 'text-gray-400'} />
                       <span className="text-sm font-bold">{term.name}</span>
                     </div>
-                    {term.is_current ? <CheckCircle2 className="text-green-500" size={16}/> : <button className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={14}/></button>}
+                    {term.is_current ? <CheckCircle2 className="text-green-500" size={16} /> : <button className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>}
                   </div>
                 )) : <div className="col-span-3 py-6 text-center text-xs font-bold text-gray-300 uppercase tracking-widest border border-dashed border-gray-200 rounded-2xl">No terms defined for this session</div>}
               </div>
@@ -110,16 +126,16 @@ const AcademicSessions: React.FC = () => {
         </div>
       ) : (
         <div className="text-center py-24 text-gray-400 flex flex-col items-center gap-4 bg-white rounded-3xl border border-dashed border-gray-200">
-           <Calendar size={32} strokeWidth={1}/>
-           <p className="font-bold">No sessions established.</p>
+          <Calendar size={32} strokeWidth={1} />
+          <p className="font-bold">No sessions established.</p>
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Initialize Session">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Update Session" : "Initialize Session"}>
         <form onSubmit={(e) => { e.preventDefault(); submitSession(formData); }} className="space-y-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Session Identity</label>
-            <input 
+            <input
               required type="text" value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
@@ -127,18 +143,18 @@ const AcademicSessions: React.FC = () => {
             />
           </div>
           <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <input 
+            <input
               type="checkbox" checked={formData.is_current}
-              onChange={e => setFormData({...formData, is_current: e.target.checked})}
+              onChange={e => setFormData({ ...formData, is_current: e.target.checked })}
               className="w-5 h-5 rounded border-gray-300 text-brand-primary"
             />
             <span className="text-sm font-bold text-gray-700">Set as Master Current Session</span>
           </div>
-          <button 
+          <button
             type="submit" disabled={isSubmittingSession}
             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
           >
-            {isSubmittingSession ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18}/> Initialize Cycle</>}
+            {isSubmittingSession ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Initialize Cycle</>}
           </button>
         </form>
       </Modal>
@@ -147,7 +163,7 @@ const AcademicSessions: React.FC = () => {
         <form onSubmit={(e) => { e.preventDefault(); submitTerm(termData); }} className="space-y-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Term Label</label>
-            <input 
+            <input
               required type="text" value={termData.name}
               onChange={e => setTermData({ ...termData, name: e.target.value })}
               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
@@ -155,18 +171,18 @@ const AcademicSessions: React.FC = () => {
             />
           </div>
           <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <input 
+            <input
               type="checkbox" checked={termData.is_current}
-              onChange={e => setTermData({...termData, is_current: e.target.checked})}
+              onChange={e => setTermData({ ...termData, is_current: e.target.checked })}
               className="w-5 h-5 rounded border-gray-300 text-brand-primary"
             />
             <span className="text-sm font-bold text-gray-700">Set as Current Active Term</span>
           </div>
-          <button 
+          <button
             type="submit" disabled={isSubmittingTerm}
             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
           >
-            {isSubmittingTerm ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18}/> Finalize Term</>}
+            {isSubmittingTerm ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Finalize Term</>}
           </button>
         </form>
       </Modal>

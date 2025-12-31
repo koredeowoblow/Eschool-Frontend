@@ -19,16 +19,21 @@ export const initEcho = (apiUrl: string, token: string) => {
   const cleanToken = token.trim().replace(/^["'](.+)["']$/, '$1');
   console.debug(`[Echo Init] Initializing with token: ${cleanToken.substring(0, 10)}...`);
 
-  return new Echo({
+  // Use relative path to leverage Vite proxy and avoid CORS issues
+  // Backend defines broadcasting routes with 'api/v1' prefix in bootstrap/app.php
+  const authEndpoint = '/api/v1/broadcasting/auth';
+
+  console.debug(`[Echo Init] Auth Endpoint: ${authEndpoint} (Proxied)`);
+
+  const echo = new Echo({
     broadcaster: 'reverb',
     key: '5fvfekx0ohg4absh6lpx',
-    wsHost: 'eschool-1.onrender.com',
+    wsHost: 'eschool-1.onrender.com', // Explicit host for production
     wsPort: 443,
     wssPort: 443,
     forceTLS: true,
     enabledTransports: ['ws', 'wss'],
-    // Using the precise endpoint specified for the eSchool production environment
-    authEndpoint: `${apiUrl}/broadcasting/auth`,
+    authEndpoint: authEndpoint,
     auth: {
       headers: {
         Authorization: `Bearer ${cleanToken}`,
@@ -37,6 +42,12 @@ export const initEcho = (apiUrl: string, token: string) => {
       },
     },
   });
+
+  echo.connector.pusher.connection.bind('error', (err: any) => {
+    console.error('[Echo Error] Connection Error:', err);
+  });
+
+  return echo;
 };
 
 export default initEcho;

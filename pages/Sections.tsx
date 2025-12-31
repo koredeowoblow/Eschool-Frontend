@@ -9,6 +9,8 @@ const Sections: React.FC = () => {
   const [sections, setSections] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSection, setEditingSection] = useState<any>(null);
 
   const fetchSections = async () => {
     setIsLoading(true);
@@ -25,11 +27,25 @@ const Sections: React.FC = () => {
   };
 
   const [formData, setFormData] = useState({ name: '' });
+  const openEditModal = (section: any) => {
+    setIsEditMode(true);
+    setEditingSection(section);
+    setFormData({ name: section.name || '' });
+    setIsModalOpen(true);
+  };
+
   const { submit, isSubmitting, errors } = useFormSubmit(
-    (data) => api.post('/sections', data),
+    (data) => {
+      if (isEditMode && editingSection) {
+        return api.put(`/sections/${editingSection.id}`, data);
+      }
+      return api.post('/sections', data);
+    },
     {
       onSuccess: () => {
         setIsModalOpen(false);
+        setIsEditMode(false);
+        setEditingSection(null);
         setFormData({ name: '' });
         fetchSections();
       }
@@ -70,14 +86,14 @@ const Sections: React.FC = () => {
       ) : sections.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section) => (
-            <div key={section.id} className="card-premium p-6 flex items-center justify-between border-l-4 border-brand-primary group">
+            <div key={section.id} onClick={() => openEditModal(section)} className="card-premium p-6 flex items-center justify-between border-l-4 border-brand-primary group cursor-pointer">
               <div>
                 <h4 className="font-bold text-gray-800 group-hover:text-brand-primary transition-colors">{section.name}</h4>
                 <p className="text-xs font-bold text-gray-400 mt-1 flex items-center gap-1.5 uppercase tracking-tighter">
                   <Users size={12} className="text-brand-primary" /> {section.classes_count || 0} Classes Assigned
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => handleDelete(section.id)}
                 className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                 title="Remove Section"
@@ -89,21 +105,21 @@ const Sections: React.FC = () => {
         </div>
       ) : (
         <div className="text-center py-24 text-gray-400 flex flex-col items-center gap-4 bg-white rounded-3xl border border-dashed border-gray-200">
-           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
-             <Inbox size={32} strokeWidth={1} />
-           </div>
-           <div className="space-y-1">
-             <p className="font-bold text-gray-600">No sections discovered.</p>
-             <p className="text-xs font-medium max-w-xs mx-auto">Click 'Add Section' to begin structuring your academic hierarchy.</p>
-           </div>
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+            <Inbox size={32} strokeWidth={1} />
+          </div>
+          <div className="space-y-1">
+            <p className="font-bold text-gray-600">No sections discovered.</p>
+            <p className="text-xs font-medium max-w-xs mx-auto">Click 'Add Section' to begin structuring your academic hierarchy.</p>
+          </div>
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Academic Section">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Update Academic Section" : "New Academic Section"}>
         <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Section Name</label>
-            <input 
+            <input
               required type="text" value={formData.name}
               onChange={e => setFormData({ name: e.target.value })}
               className={`w-full p-3.5 bg-gray-50 border rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 ${errors.name ? 'border-red-400' : 'border-gray-100'}`}
@@ -111,11 +127,11 @@ const Sections: React.FC = () => {
             />
             {errors.name && <p className="text-[10px] text-red-500 font-bold ml-1">{errors.name[0]}</p>}
           </div>
-          <button 
+          <button
             type="submit" disabled={isSubmitting}
             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
           >
-            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18}/> Initialize Section</>}
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Initialize Section</>}
           </button>
         </form>
       </Modal>

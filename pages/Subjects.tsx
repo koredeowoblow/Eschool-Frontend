@@ -10,6 +10,8 @@ const Subjects: React.FC = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<any>(null);
 
   const { options: teacherOptions } = useSelectOptions('/teachers');
   const [formData, setFormData] = useState({
@@ -30,11 +32,29 @@ const Subjects: React.FC = () => {
     }
   };
 
+  const openEditModal = (subject: any) => {
+    setIsEditMode(true);
+    setEditingSubject(subject);
+    setFormData({
+      name: subject.name || '',
+      code: subject.code || '',
+      teacher_id: ''
+    });
+    setIsModalOpen(true);
+  };
+
   const { submit, isSubmitting, errors } = useFormSubmit(
-    (data) => api.post('/subjects', data),
+    (data) => {
+      if (isEditMode && editingSubject) {
+        return api.put(`/subjects/${editingSubject.id}`, data);
+      }
+      return api.post('/subjects', data);
+    },
     {
       onSuccess: () => {
         setIsModalOpen(false);
+        setIsEditMode(false);
+        setEditingSubject(null);
         fetchSubjects();
         setFormData({ name: '', code: '', teacher_id: '' });
       }
@@ -52,7 +72,12 @@ const Subjects: React.FC = () => {
           <h2 className="text-xl font-bold text-gray-800 tracking-tight">Academic Subjects</h2>
           <p className="text-sm text-gray-500 font-medium">Core curriculum and departmental management</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-brand-primary/20 transition-all active:scale-95">
+        <button onClick={() => {
+          setIsEditMode(false);
+          setEditingSubject(null);
+          setFormData({ name: '', code: '', teacher_id: '' });
+          setIsModalOpen(true);
+        }} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-brand-primary/20 transition-all active:scale-95">
           <Plus size={18} />
           Create Subject
         </button>
@@ -66,7 +91,7 @@ const Subjects: React.FC = () => {
       ) : subjects.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {subjects.map((sub) => (
-            <div key={sub.id} className="card-premium p-6 group cursor-pointer hover:border-brand-primary/30 border border-transparent transition-all">
+            <div key={sub.id} onClick={() => openEditModal(sub)} className="card-premium p-6 group cursor-pointer hover:border-brand-primary/30 border border-transparent transition-all">
               <div className="w-12 h-12 bg-blue-50 text-brand-primary rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-sm">
                 <BookOpen size={24} />
               </div>
@@ -87,18 +112,18 @@ const Subjects: React.FC = () => {
         </div>
       ) : (
         <div className="text-center py-20 text-gray-400 flex flex-col items-center gap-4">
-           <Inbox size={48} strokeWidth={1} />
-           <p className="font-bold uppercase tracking-widest text-xs">Curriculum is empty.</p>
+          <Inbox size={48} strokeWidth={1} />
+          <p className="font-bold uppercase tracking-widest text-xs">Curriculum is empty.</p>
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Define Subject">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Update Subject" : "Define Subject"}>
         <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject Title</label>
-            <input 
+            <input
               required type="text" value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
               className={`w-full p-3.5 bg-gray-50 border rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 ${errors.name ? 'border-red-400' : 'border-gray-100'}`}
               placeholder="e.g. Advanced Physics"
             />
@@ -108,9 +133,9 @@ const Subjects: React.FC = () => {
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject Code</label>
             <div className="relative">
               <Hash size={16} className="absolute left-3.5 top-4 text-gray-400" />
-              <input 
+              <input
                 required type="text" value={formData.code}
-                onChange={e => setFormData({...formData, code: e.target.value})}
+                onChange={e => setFormData({ ...formData, code: e.target.value })}
                 className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
                 placeholder="PHY-202"
               />
@@ -120,9 +145,9 @@ const Subjects: React.FC = () => {
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Department Head (Teacher)</label>
             <div className="relative">
-              <select 
+              <select
                 value={formData.teacher_id}
-                onChange={e => setFormData({...formData, teacher_id: e.target.value})}
+                onChange={e => setFormData({ ...formData, teacher_id: e.target.value })}
                 className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold appearance-none"
               >
                 <option value="">Assign Lead Teacher</option>
@@ -131,11 +156,11 @@ const Subjects: React.FC = () => {
             </div>
           </div>
 
-          <button 
+          <button
             type="submit" disabled={isSubmitting}
             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
           >
-            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18}/> Initialize Subject</>}
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Initialize Subject</>}
           </button>
         </form>
       </Modal>

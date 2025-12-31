@@ -15,10 +15,12 @@ const fetchClassesApi = async ({ page, search }: { page: number, search: string 
 
 const Classes: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingClass, setEditingClass] = useState<ClassRoom | null>(null);
   const [isManageSubjectsOpen, setIsManageSubjectsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedClass, setSelectedClass] = useState<any>(null);
-  
+
   const { data, isLoading, search, setSearch, refresh } = useDataTable<ClassRoom>(fetchClassesApi as any);
   const { options: sectionOptions } = useSelectOptions('/sections');
   const { options: teacherOptions } = useSelectOptions('/teachers');
@@ -27,16 +29,33 @@ const Classes: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', section_id: '', teacher_id: '' });
   const [subjectMapping, setSubjectMapping] = useState({ teacher_id: '', subject_id: '' });
 
+  const openEditModal = (classRoom: ClassRoom) => {
+    setIsEditMode(true);
+    setEditingClass(classRoom);
+    setFormData({
+      name: classRoom.name || '',
+      section_id: classRoom.section?.id ? String(classRoom.section.id) : '',
+      teacher_id: ''
+    });
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await api.post('/classes', formData);
+      if (isEditMode && editingClass) {
+        await api.put(`/classes/${editingClass.id}`, formData);
+      } else {
+        await api.post('/classes', formData);
+      }
       setIsModalOpen(false);
+      setIsEditMode(false);
+      setEditingClass(null);
       setFormData({ name: '', section_id: '', teacher_id: '' });
       refresh();
     } catch (err) {
-      console.error("Failed to create class", err);
+      console.error("Failed to save class", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -61,8 +80,8 @@ const Classes: React.FC = () => {
   };
 
   const columns = [
-    { 
-      header: 'Class Name', 
+    {
+      header: 'Class Name',
       key: 'name',
       render: (c: ClassRoom) => (
         <div className="flex items-center gap-3">
@@ -77,8 +96,8 @@ const Classes: React.FC = () => {
       )
     },
     { header: 'Form Teacher', key: 'form_teacher', className: 'text-sm font-bold text-gray-600' },
-    { 
-      header: 'Nested Statistics', 
+    {
+      header: 'Nested Statistics',
       key: 'students_count',
       render: (c: ClassRoom) => (
         <div className="flex items-center gap-2">
@@ -97,15 +116,15 @@ const Classes: React.FC = () => {
       className: 'text-right',
       render: (c: any) => (
         <div className="flex items-center justify-end gap-1">
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); setSelectedClass(c); setIsManageSubjectsOpen(true); }}
             className="p-2 text-gray-400 hover:text-brand-primary rounded-lg transition-colors"
             title="Manage Faculty Mapping"
           >
-            <Settings size={16}/>
+            <Settings size={16} />
           </button>
-          <button className="p-2 text-gray-400 hover:text-brand-primary rounded-lg transition-colors"><Edit2 size={16}/></button>
-          <button className="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors"><Trash2 size={16}/></button>
+          <button onClick={(e) => { e.stopPropagation(); openEditModal(c); }} className="p-2 text-gray-400 hover:text-brand-primary rounded-lg transition-colors"><Edit2 size={16} /></button>
+          <button className="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors"><Trash2 size={16} /></button>
         </div>
       )
     }
@@ -116,37 +135,42 @@ const Classes: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-3 text-gray-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search institutional units..." 
+          <input
+            type="text"
+            placeholder="Search institutional units..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-white border border-gray-200 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium outline-none focus:border-brand-primary transition-all shadow-sm"
           />
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-6 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
+        <button onClick={() => {
+          setIsEditMode(false);
+          setEditingClass(null);
+          setFormData({ name: '', section_id: '', teacher_id: '' });
+          setIsModalOpen(true);
+        }} className="px-6 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all active:scale-95">
           <Plus size={18} /> Create Class
         </button>
       </div>
 
       <DataTable columns={columns} data={data} isLoading={isLoading} />
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Define Institutional Unit">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditMode ? "Update Institutional Unit" : "Define Institutional Unit"}>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Class Label</label>
-            <input 
+            <input
               required type="text" placeholder="e.g. Grade 10 Alpha" value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 transition-all" 
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 transition-all"
             />
           </div>
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Academic Section</label>
-            <select 
+            <select
               required value={formData.section_id}
-              onChange={(e) => setFormData({...formData, section_id: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 appearance-none transition-all"
             >
               <option value="">Select Division</option>
@@ -156,9 +180,9 @@ const Classes: React.FC = () => {
 
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Lead Authority (Form Teacher)</label>
-            <select 
+            <select
               value={formData.teacher_id}
-              onChange={(e) => setFormData({...formData, teacher_id: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, teacher_id: e.target.value })}
               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 appearance-none transition-all"
             >
               <option value="">Assign Authority</option>
@@ -166,36 +190,36 @@ const Classes: React.FC = () => {
             </select>
           </div>
 
-          <button 
+          <button
             type="submit" disabled={isSubmitting}
             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
           >
-            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18}/> Initialize Record</>}
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Initialize Record</>}
           </button>
         </form>
       </Modal>
 
       <Modal isOpen={isManageSubjectsOpen} onClose={() => setIsManageSubjectsOpen(false)} title={`Faculty Mapping: ${selectedClass?.name}`}>
-         <form onSubmit={handleManageSubjects} className="space-y-5">
-            <p className="text-xs text-gray-500 font-medium italic leading-relaxed">Synchronize academic faculty and subject domains to this class unit.</p>
-            <div className="space-y-1.5">
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject Domain</label>
-               <select required value={subjectMapping.subject_id} onChange={e => setSubjectMapping({...subjectMapping, subject_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-                  <option value="">Select Subject</option>
-                  {subjectOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-               </select>
-            </div>
-            <div className="space-y-1.5">
-               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assigned Specialist (Teacher)</label>
-               <select required value={subjectMapping.teacher_id} onChange={e => setSubjectMapping({...subjectMapping, teacher_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-                  <option value="">Select Teacher</option>
-                  {teacherOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-               </select>
-            </div>
-            <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2">
-               {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <><Save size={18}/> Commit Mapping</>}
-            </button>
-         </form>
+        <form onSubmit={handleManageSubjects} className="space-y-5">
+          <p className="text-xs text-gray-500 font-medium italic leading-relaxed">Synchronize academic faculty and subject domains to this class unit.</p>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Subject Domain</label>
+            <select required value={subjectMapping.subject_id} onChange={e => setSubjectMapping({ ...subjectMapping, subject_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+              <option value="">Select Subject</option>
+              {subjectOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assigned Specialist (Teacher)</label>
+            <select required value={subjectMapping.teacher_id} onChange={e => setSubjectMapping({ ...subjectMapping, teacher_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+              <option value="">Select Teacher</option>
+              {teacherOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2">
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Commit Mapping</>}
+          </button>
+        </form>
       </Modal>
     </div>
   );
