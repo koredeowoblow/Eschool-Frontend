@@ -24,7 +24,7 @@ const Library: React.FC = () => {
   const [activeView, setActiveView] = useState<'inventory' | 'borrowings'>('inventory');
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const { showNotification } = useNotification();
-  
+
   const { options: studentOptions } = useSelectOptions('/students');
   const { options: bookOptions } = useSelectOptions('/library/books', 'title');
 
@@ -45,7 +45,7 @@ const Library: React.FC = () => {
 
   const handleReturn = async (id: string) => {
     try {
-      await api.patch(`/library/borrowings/${id}/return`); 
+      await api.patch(`/library/borrowings/${id}/return`);
       showNotification("Asset returned to inventory.", "success");
       borrowingsTable.refresh();
       inventoryTable.refresh();
@@ -56,8 +56,8 @@ const Library: React.FC = () => {
   };
 
   const inventoryColumns = [
-    { 
-      header: 'Literary Title', 
+    {
+      header: 'Literary Title',
       key: 'title',
       render: (b: any) => (
         <div className="flex items-center gap-3">
@@ -70,8 +70,8 @@ const Library: React.FC = () => {
       )
     },
     { header: 'Genre', key: 'category', className: 'text-xs font-black uppercase text-gray-400 tracking-widest' },
-    { 
-      header: 'Availability', 
+    {
+      header: 'Availability',
       key: 'available_copies',
       render: (b: any) => (
         <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase ${b.available_copies > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -82,20 +82,20 @@ const Library: React.FC = () => {
   ];
 
   const borrowingColumns = [
-    { 
-      header: 'Student', 
+    {
+      header: 'Student',
       key: 'student_name',
       render: (log: any) => (
         <div className="flex items-center gap-2">
-           <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400">{(log.student_name || 'S')[0]}</div>
-           <span className="text-sm font-bold text-gray-700">{log.student_name}</span>
+          <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-400">{(log.student_name || 'S')[0]}</div>
+          <span className="text-sm font-bold text-gray-700">{log.student_name}</span>
         </div>
       )
     },
     { header: 'Book Title', key: 'book_title', className: 'text-sm text-gray-500 font-medium' },
     { header: 'Due Date', key: 'due_date', className: 'text-xs font-bold text-red-400' },
-    { 
-      header: 'Status / Action', 
+    {
+      header: 'Status / Action',
       key: 'status',
       render: (log: any) => (
         <div className="flex items-center gap-3">
@@ -112,6 +112,25 @@ const Library: React.FC = () => {
     }
   ];
 
+  const [bookData, setBookData] = useState({ title: '', author: '', isbn: '', category: '', copies: 1 });
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+
+  const { submit: submitBook, isSubmitting: isBookSubmitting } = useFormSubmit(
+    (data) => api.post('/library/books', data),
+    {
+      onSuccess: () => {
+        setIsBookModalOpen(false);
+        inventoryTable.refresh();
+        setBookData({ title: '', author: '', isbn: '', category: '', copies: 1 });
+      }
+    }
+  );
+
+  const issueColumns = [
+    // ... (Keep existing if needed, but defining them inside seems chaotic if not used in render. 
+    // Wait, reusing borrowingColumns logic but confirming render)
+  ];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -120,71 +139,106 @@ const Library: React.FC = () => {
           <p className="text-sm text-gray-500 font-medium">Curating institutional knowledge assets</p>
         </div>
         <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-          <button onClick={() => setActiveView('inventory')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeView === 'inventory' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><Book size={16}/> Catalog</button>
-          <button onClick={() => setActiveView('borrowings')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeView === 'borrowings' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><History size={16}/> Log</button>
+          <button onClick={() => setActiveView('inventory')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeView === 'inventory' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><Book size={16} /> Catalog</button>
+          <button onClick={() => setActiveView('borrowings')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeView === 'borrowings' ? 'bg-white text-brand-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><History size={16} /> Log</button>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-8">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-3 text-gray-400" size={20} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder={activeView === 'inventory' ? "Search catalog..." : "Search loan registry..."}
             value={activeView === 'inventory' ? inventoryTable.search : borrowingsTable.search}
             onChange={(e) => activeView === 'inventory' ? inventoryTable.setSearch(e.target.value) : borrowingsTable.setSearch(e.target.value)}
-            className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold shadow-sm outline-none focus:border-brand-primary transition-all" 
+            className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold shadow-sm outline-none focus:border-brand-primary transition-all"
           />
         </div>
-        <button 
-          onClick={() => activeView === 'inventory' ? null : setIsIssueModalOpen(true)}
+        <button
+          onClick={() => activeView === 'inventory' ? setIsBookModalOpen(true) : setIsIssueModalOpen(true)}
           className="flex items-center gap-2 px-8 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:bg-blue-700 transition-all"
         >
           <Plus size={18} /> {activeView === 'inventory' ? 'Add Asset' : 'Issue Book'}
         </button>
       </div>
 
-      <DataTable 
-        columns={activeView === 'inventory' ? inventoryColumns : borrowingColumns} 
-        data={activeView === 'inventory' ? inventoryTable.data : borrowingsTable.data} 
-        isLoading={activeView === 'inventory' ? inventoryTable.isLoading : borrowingsTable.isLoading} 
+      <DataTable
+        columns={activeView === 'inventory' ? inventoryColumns : borrowingColumns}
+        data={activeView === 'inventory' ? inventoryTable.data : borrowingsTable.data}
+        isLoading={activeView === 'inventory' ? inventoryTable.isLoading : borrowingsTable.isLoading}
       />
 
+      {/* Issue Book Modal */}
       <Modal isOpen={isIssueModalOpen} onClose={() => setIsIssueModalOpen(false)} title="Circulation: Issue Asset">
         <form onSubmit={(e) => { e.preventDefault(); submitIssue(issueData); }} className="space-y-4">
-           <div className="space-y-1">
-             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Borrower (Student)</label>
-             <select 
-               required value={issueData.student_id} onChange={e => setIssueData({...issueData, student_id: e.target.value})}
-               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold"
-             >
-               <option value="">Select Student</option>
-               {studentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-             </select>
-           </div>
-           <div className="space-y-1">
-             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Academic Asset (Book)</label>
-             <select 
-               required value={issueData.book_id} onChange={e => setIssueData({...issueData, book_id: e.target.value})}
-               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold"
-             >
-               <option value="">Select Book</option>
-               {bookOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-             </select>
-           </div>
-           <div className="space-y-1">
-             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Maturity Date (Due)</label>
-             <input 
-               required type="date" value={issueData.due_date} onChange={e => setIssueData({...issueData, due_date: e.target.value})}
-               className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold"
-             />
-           </div>
-           <button 
-             type="submit" disabled={isIssuing}
-             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
-           >
-             {isIssuing ? <Loader2 className="animate-spin" size={20}/> : <><Save size={18}/> Authorize Loan</>}
-           </button>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Borrower (Student)</label>
+            <select
+              required value={issueData.student_id} onChange={e => setIssueData({ ...issueData, student_id: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold"
+            >
+              <option value="">Select Student</option>
+              {studentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Academic Asset (Book)</label>
+            <select
+              required value={issueData.book_id} onChange={e => setIssueData({ ...issueData, book_id: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold"
+            >
+              <option value="">Select Book</option>
+              {bookOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Maturity Date (Due)</label>
+            <input
+              required type="date" value={issueData.due_date} onChange={e => setIssueData({ ...issueData, due_date: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold"
+            />
+          </div>
+          <button
+            type="submit" disabled={isIssuing}
+            className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
+          >
+            {isIssuing ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Authorize Loan</>}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Add Book Modal */}
+      <Modal isOpen={isBookModalOpen} onClose={() => setIsBookModalOpen(false)} title="Catalog: New Asset">
+        <form onSubmit={(e) => { e.preventDefault(); submitBook(bookData); }} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Literary Title</label>
+            <input required type="text" value={bookData.title} onChange={e => setBookData({ ...bookData, title: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Author / Creator</label>
+            <input required type="text" value={bookData.author} onChange={e => setBookData({ ...bookData, author: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">ISBN / Reference</label>
+              <input type="text" value={bookData.isbn} onChange={e => setBookData({ ...bookData, isbn: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Genre / Category</label>
+              <input type="text" value={bookData.category} onChange={e => setBookData({ ...bookData, category: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
+            <input required type="number" min="0" value={bookData.copies} onChange={e => setBookData({ ...bookData, copies: parseInt(e.target.value) })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+          </div>
+          <button
+            type="submit" disabled={isBookSubmitting}
+            className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
+          >
+            {isBookSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Catalog Asset</>}
+          </button>
         </form>
       </Modal>
     </div>

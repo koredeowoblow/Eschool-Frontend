@@ -10,7 +10,7 @@ const Promotions: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   // Fixed: Correctly destructure showNotification from useNotification hook
   const { showNotification } = useNotification();
-  
+
   const { options: classOptions } = useSelectOptions('/classes');
   const { options: sessionOptions } = useSelectOptions('/school-sessions');
   const { options: sectionOptions } = useSelectOptions('/sections');
@@ -74,18 +74,18 @@ const Promotions: React.FC = () => {
           <p className="text-sm text-gray-500 font-medium tracking-tight">Institutional cohort advancement matrix</p>
         </div>
         <div className="flex gap-2">
-          <select 
-            value={promotionConfig.type} 
-            onChange={e => setPromotionConfig({...promotionConfig, type: e.target.value as any})}
+          <select
+            value={promotionConfig.type}
+            onChange={e => setPromotionConfig({ ...promotionConfig, type: e.target.value as any })}
             className="px-4 py-3 bg-white border border-gray-100 rounded-xl text-xs font-black uppercase tracking-widest text-gray-500 outline-none"
           >
             <option value="promote">Standard Promotion</option>
             <option value="repeat">Academic Repeat</option>
           </select>
-          <button 
+          <button
             onClick={handlePromote}
-            className="flex items-center gap-2 px-8 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-xl hover:bg-blue-700 transition-all disabled:opacity-50" 
-            disabled={selectedStudents.length === 0 || !promotionConfig.to_class_id}
+            className="flex items-center gap-2 px-8 py-3.5 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+            disabled={selectedStudents.length === 0 || !promotionConfig.to_class_id || !promotionConfig.to_session_id}
           >
             <UserCheck size={18} />
             Commit ({selectedStudents.length})
@@ -96,28 +96,28 @@ const Promotions: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card-premium p-4 space-y-1">
           <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Source Class</label>
-          <select value={promotionConfig.source_class} onChange={e => setPromotionConfig({...promotionConfig, source_class: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
+          <select value={promotionConfig.source_class} onChange={e => setPromotionConfig({ ...promotionConfig, source_class: e.target.value })} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
             <option value="">Select Level</option>
             {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div className="card-premium p-4 space-y-1">
           <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Class</label>
-          <select value={promotionConfig.to_class_id} onChange={e => setPromotionConfig({...promotionConfig, to_class_id: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
+          <select value={promotionConfig.to_class_id} onChange={e => setPromotionConfig({ ...promotionConfig, to_class_id: e.target.value })} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
             <option value="">Select Target</option>
             {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div className="card-premium p-4 space-y-1">
           <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">New Session</label>
-          <select value={promotionConfig.to_session_id} onChange={e => setPromotionConfig({...promotionConfig, to_session_id: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
+          <select value={promotionConfig.to_session_id} onChange={e => setPromotionConfig({ ...promotionConfig, to_session_id: e.target.value })} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
             <option value="">Select Session</option>
             {sessionOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div className="card-premium p-4 space-y-1">
           <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">New Section</label>
-          <select value={promotionConfig.to_section_id} onChange={e => setPromotionConfig({...promotionConfig, to_section_id: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
+          <select value={promotionConfig.to_section_id} onChange={e => setPromotionConfig({ ...promotionConfig, to_section_id: e.target.value })} className="w-full bg-gray-50 border border-gray-100 rounded-lg p-2 text-xs font-bold">
             <option value="">Select Section</option>
             {sectionOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -136,8 +136,8 @@ const Promotions: React.FC = () => {
               <thead>
                 <tr className="bg-gray-50/50 border-b border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                   <th className="px-6 py-4 w-12">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       onChange={(e) => setSelectedStudents(e.target.checked ? students.map(s => s.id) : [])}
                       className="w-4 h-4 rounded-md border-gray-300 text-brand-primary"
                     />
@@ -151,11 +151,11 @@ const Promotions: React.FC = () => {
                 {students.map((s) => (
                   <tr key={s.id} className={`transition-colors ${selectedStudents.includes(s.id) ? 'bg-blue-50/30' : 'hover:bg-gray-50/30'}`}>
                     <td className="px-6 py-4">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={selectedStudents.includes(s.id)}
                         onChange={() => setSelectedStudents(prev => prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id])}
-                        className="w-4 h-4 rounded-md border-gray-300 text-brand-primary" 
+                        className="w-4 h-4 rounded-md border-gray-300 text-brand-primary"
                       />
                     </td>
                     <td className="px-6 py-4">
@@ -163,9 +163,8 @@ const Promotions: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-center font-black text-sm text-gray-600">{s.avg_score || '0'}%</td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                        s.avg_score >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${s.avg_score >= 50 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
                         {s.avg_score >= 50 ? 'Pass' : 'Probation'}
                       </span>
                     </td>
@@ -175,8 +174,8 @@ const Promotions: React.FC = () => {
             </table>
           ) : (
             <div className="text-center py-20 text-gray-400 flex flex-col items-center gap-4">
-               <Inbox size={48} strokeWidth={1} />
-               <p className="font-bold">No candidate students found.</p>
+              <Inbox size={48} strokeWidth={1} />
+              <p className="font-bold">No candidate students found.</p>
             </div>
           )}
         </div>

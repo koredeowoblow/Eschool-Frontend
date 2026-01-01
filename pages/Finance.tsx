@@ -30,24 +30,24 @@ const Finance: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatsCard 
-          label="Total Revenue" 
-          value={`$${(stats?.total_revenue || 0).toLocaleString()}`} 
-          icon={DollarSign} 
-          color="bg-green-600" 
-          trend={stats?.revenue_trend} 
+        <StatsCard
+          label="Total Revenue"
+          value={`$${(stats?.total_revenue || 0).toLocaleString()}`}
+          icon={DollarSign}
+          color="bg-green-600"
+          trend={stats?.revenue_trend}
         />
-        <StatsCard 
-          label="Outstanding" 
-          value={`$${(stats?.total_outstanding || 0).toLocaleString()}`} 
-          icon={AlertCircle} 
-          color="bg-red-500" 
+        <StatsCard
+          label="Outstanding"
+          value={`$${(stats?.total_outstanding || 0).toLocaleString()}`}
+          icon={AlertCircle}
+          color="bg-red-500"
         />
-        <StatsCard 
-          label="Pending Invoices" 
-          value={stats?.pending_invoices_count || 0} 
-          icon={FileText} 
-          color="bg-orange-500" 
+        <StatsCard
+          label="Pending Invoices"
+          value={stats?.pending_invoices_count || 0}
+          icon={FileText}
+          color="bg-orange-500"
         />
       </div>
 

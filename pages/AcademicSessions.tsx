@@ -26,11 +26,16 @@ const AcademicSessions: React.FC = () => {
     }
   };
 
-  const [formData, setFormData] = useState({ name: '', is_current: true });
+  const [formData, setFormData] = useState({ name: '', start_date: '', end_date: '', status: 'active' });
   const openEditModal = (session: any) => {
     setIsEditMode(true);
     setEditingSession(session);
-    setFormData({ name: session.name || '', is_current: session.is_current || false });
+    setFormData({
+      name: session.name || '',
+      start_date: session.start_date ? session.start_date.split('T')[0] : '',
+      end_date: session.end_date ? session.end_date.split('T')[0] : '',
+      status: session.status || 'active'
+    });
     setIsModalOpen(true);
   };
 
@@ -46,19 +51,19 @@ const AcademicSessions: React.FC = () => {
         setIsModalOpen(false);
         setIsEditMode(false);
         setEditingSession(null);
-        setFormData({ name: '', is_current: true });
+        setFormData({ name: '', start_date: '', end_date: '', status: 'active' });
         fetchSessions();
       }
     }
   );
 
-  const [termData, setTermData] = useState({ name: '', is_current: false });
+  const [termData, setTermData] = useState({ name: '', start_date: '', end_date: '', status: 'active' });
   const { submit: submitTerm, isSubmitting: isSubmittingTerm } = useFormSubmit(
     (data) => api.post('/terms', { ...data, school_session_id: selectedSessionId }), // POST api/v1/terms
     {
       onSuccess: () => {
         setIsTermModalOpen(false);
-        setTermData({ name: '', is_current: false });
+        setTermData({ name: '', start_date: '', end_date: '', status: 'active' });
         fetchSessions();
       }
     }
@@ -142,19 +147,43 @@ const AcademicSessions: React.FC = () => {
               placeholder="e.g. 2024/2025 Academic Cycle"
             />
           </div>
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <input
-              type="checkbox" checked={formData.is_current}
-              onChange={e => setFormData({ ...formData, is_current: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300 text-brand-primary"
-            />
-            <span className="text-sm font-bold text-gray-700">Set as Master Current Session</span>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Start Date</label>
+              <input
+                required type="date" value={formData.start_date}
+                onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">End Date</label>
+              <input
+                required type="date" value={formData.end_date}
+                onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Status</label>
+            <select
+              required
+              value={formData.status}
+              onChange={e => setFormData({ ...formData, status: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 appearance-none"
+            >
+              <option value="active">Active Session</option>
+              <option value="ended">Ended / Archived</option>
+            </select>
           </div>
           <button
             type="submit" disabled={isSubmittingSession}
             className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2"
           >
-            {isSubmittingSession ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Initialize Cycle</>}
+            {isSubmittingSession ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> {isEditMode ? 'Update' : 'Initialize'} Cycle</>}
           </button>
         </form>
       </Modal>
@@ -170,13 +199,37 @@ const AcademicSessions: React.FC = () => {
               placeholder="e.g. Hilary Term"
             />
           </div>
-          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <input
-              type="checkbox" checked={termData.is_current}
-              onChange={e => setTermData({ ...termData, is_current: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300 text-brand-primary"
-            />
-            <span className="text-sm font-bold text-gray-700">Set as Current Active Term</span>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Start Date</label>
+              <input
+                required type="date" value={termData.start_date}
+                onChange={e => setTermData({ ...termData, start_date: e.target.value })}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">End Date</label>
+              <input
+                required type="date" value={termData.end_date}
+                onChange={e => setTermData({ ...termData, end_date: e.target.value })}
+                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Status</label>
+            <select
+              required
+              value={termData.status}
+              onChange={e => setTermData({ ...termData, status: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-brand-primary font-bold text-gray-800 appearance-none"
+            >
+              <option value="active">Active Term</option>
+              <option value="ended">Ended / Archived</option>
+            </select>
           </div>
           <button
             type="submit" disabled={isSubmittingTerm}

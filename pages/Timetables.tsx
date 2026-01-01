@@ -20,11 +20,18 @@ const Timetables: React.FC = () => {
   const { options: subjectOptions } = useSelectOptions('/subjects');
   const { options: teacherOptions } = useSelectOptions('/teachers');
 
+  const DAY_MAP: Record<string, string> = {
+    'Monday': 'Mon', 'Tuesday': 'Tue', 'Wednesday': 'Wed', 'Thursday': 'Thu', 'Friday': 'Fri', 'Saturday': 'Sat', 'Sunday': 'Sun'
+  };
+  const REVERSE_DAY_MAP: Record<string, string> = {
+    'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday'
+  };
+
   const [formData, setFormData] = useState({
-    class_room_id: '',
+    class_id: '',
     subject_id: '',
     teacher_id: '',
-    day: 'Monday',
+    day_of_week: 'Mon',
     start_time: '08:00',
     end_time: '09:00'
   });
@@ -51,10 +58,10 @@ const Timetables: React.FC = () => {
     setIsEditMode(true);
     setEditingSlot(slot);
     setFormData({
-      class_room_id: slot.class_room_id ? String(slot.class_room_id) : '',
+      class_id: slot.class_id ? String(slot.class_id) : (slot.class_room_id ? String(slot.class_room_id) : ''),
       subject_id: slot.subject_id ? String(slot.subject_id) : '',
       teacher_id: slot.teacher_id ? String(slot.teacher_id) : '',
-      day: slot.day || 'Monday',
+      day_of_week: slot.day_of_week || DAY_MAP[slot.day] || 'Mon',
       start_time: slot.start_time || '08:00',
       end_time: slot.end_time || '09:00'
     });
@@ -78,14 +85,14 @@ const Timetables: React.FC = () => {
     }
   );
 
-  const handleCellClick = (day: string, time: string) => {
+  const handleCellClick = (dayStr: string, time: string) => {
     // Calculate end time (1 hour block default)
     const [hour, min] = time.split(':');
     const endHour = String(Number(hour) + 1).padStart(2, '0');
 
     setFormData({
       ...formData,
-      day,
+      day_of_week: DAY_MAP[dayStr] || 'Mon',
       start_time: time,
       end_time: `${endHour}:${min}`
     });
@@ -139,7 +146,11 @@ const Timetables: React.FC = () => {
                   <tr key={time} className="h-32">
                     <td className="p-4 text-center text-xs font-black text-gray-400 bg-gray-50/20 border-r border-gray-100">{time}</td>
                     {DAYS.map(day => {
-                      const session = schedule.find(s => s.day === day && s.start_time?.startsWith(time));
+                      const session = schedule.find(s => {
+                        const sDay = s.day_of_week || DAY_MAP[s.day] || s.day; // Handle both backend formats
+                        const tDay = DAY_MAP[day];
+                        return sDay === tDay && s.start_time?.startsWith(time);
+                      });
                       return (
                         <td
                           key={`${day}-${time}`}
@@ -178,7 +189,7 @@ const Timetables: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Academic Unit</label>
-              <select required value={formData.class_room_id} onChange={e => setFormData({ ...formData, class_room_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+              <select required value={formData.class_id} onChange={e => setFormData({ ...formData, class_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
                 <option value="">Select Class</option>
                 {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -202,8 +213,8 @@ const Timetables: React.FC = () => {
 
           <div className="space-y-1">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Day of Week</label>
-            <select required value={formData.day} onChange={e => setFormData({ ...formData, day: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-              {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+            <select required value={formData.day_of_week} onChange={e => setFormData({ ...formData, day_of_week: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+              {Object.entries(DAY_MAP).map(([full, short]) => <option key={short} value={short}>{full}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">

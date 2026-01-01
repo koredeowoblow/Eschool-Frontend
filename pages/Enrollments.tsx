@@ -16,12 +16,13 @@ const fetchEnrollmentsApi = async (params: any) => {
 const Enrollments: React.FC = () => {
   const { data, isLoading, refresh, search, setSearch } = useDataTable(fetchEnrollmentsApi);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   const { options: studentOptions } = useSelectOptions('/students');
   const { options: classOptions } = useSelectOptions('/classes');
   const { options: sessionOptions } = useSelectOptions('/school-sessions');
+  const { options: termOptions } = useSelectOptions('/academic-terms');
 
-  const [formData, setFormData] = useState({ student_id: '', class_room_id: '', school_session_id: '' });
+  const [formData, setFormData] = useState({ student_id: '', class_id: '', session_id: '', term_id: '' });
   const { submit, isSubmitting } = useFormSubmit(
     (data) => api.post('/enrollments', data),
     {
@@ -33,8 +34,8 @@ const Enrollments: React.FC = () => {
   );
 
   const columns = [
-    { 
-      header: 'Enrolled Student', 
+    {
+      header: 'Enrolled Student',
       key: 'student_name',
       render: (e: any) => (
         <div className="flex items-center gap-3">
@@ -46,23 +47,26 @@ const Enrollments: React.FC = () => {
         </div>
       )
     },
-    { 
-      header: 'Placement', 
+    {
+      header: 'Placement',
       key: 'class_name',
       render: (e: any) => (
         <div className="flex items-center gap-2">
-           <School size={14} className="text-brand-primary" />
-           <span className="text-sm font-bold text-gray-700">{e.class_room?.name}</span>
+          <School size={14} className="text-brand-primary" />
+          <span className="text-sm font-bold text-gray-700">{e.classRoom?.name || e.class_room?.name}</span>
         </div>
       )
     },
-    { 
-      header: 'Academic Cycle', 
+    {
+      header: 'Academic Cycle',
       key: 'session',
       render: (e: any) => (
         <div className="flex items-center gap-2">
-           <Calendar size={14} className="text-brand-secondary" />
-           <span className="text-xs font-bold text-gray-500">{e.school_session?.name}</span>
+          <Calendar size={14} className="text-brand-secondary" />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-gray-500">{e.session?.name || e.school_session?.name}</span>
+            <span className="text-[10px] text-gray-400 font-bold">{e.term?.name}</span>
+          </div>
         </div>
       )
     }
@@ -82,7 +86,7 @@ const Enrollments: React.FC = () => {
 
       <div className="relative max-w-md">
         <Search className="absolute left-4 top-3 text-gray-400" size={20} />
-        <input 
+        <input
           type="text" placeholder="Search enrollments..." value={search} onChange={e => setSearch(e.target.value)}
           className="w-full bg-white border border-gray-100 rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold outline-none focus:border-brand-primary shadow-sm"
         />
@@ -92,32 +96,39 @@ const Enrollments: React.FC = () => {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="New Placement Entry">
         <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
-           <div className="space-y-1">
-             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Student</label>
-             <select required value={formData.student_id} onChange={e => setFormData({...formData, student_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-               <option value="">Select Student</option>
-               {studentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-             </select>
-           </div>
-           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Class Placement</label>
-                <select required value={formData.class_room_id} onChange={e => setFormData({...formData, class_room_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-                  <option value="">Select Class</option>
-                  {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Academic Cycle</label>
-                <select required value={formData.school_session_id} onChange={e => setFormData({...formData, school_session_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-                  <option value="">Select Session</option>
-                  {sessionOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-           </div>
-           <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
-             {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <><Save size={18}/> Commit Enrollment</>}
-           </button>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Student</label>
+            <select required value={formData.student_id} onChange={e => setFormData({ ...formData, student_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+              <option value="">Select Student</option>
+              {studentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Class Placement</label>
+              <select required value={formData.class_id} onChange={e => setFormData({ ...formData, class_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Class</option>
+                {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Session</label>
+              <select required value={formData.session_id} onChange={e => setFormData({ ...formData, session_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Session</option>
+                {sessionOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Term</label>
+              <select required value={formData.term_id} onChange={e => setFormData({ ...formData, term_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Term</option>
+                {termOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Commit Enrollment</>}
+          </button>
         </form>
       </Modal>
     </div>

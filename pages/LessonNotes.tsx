@@ -30,7 +30,7 @@ const LessonNotes: React.FC = () => {
 
   const [formData, setFormData] = useState({
     title: '',
-    class_room_id: '',
+    class_id: '',
     subject_id: '',
     date: new Date().toISOString().split('T')[0],
     content: ''
@@ -41,7 +41,7 @@ const LessonNotes: React.FC = () => {
     setEditingNote(note);
     setFormData({
       title: note.title || '',
-      class_room_id: note.class_room_id ? String(note.class_room_id) : '',
+      class_id: note.class_room_id ? String(note.class_room_id) : (note.class_id ? String(note.class_id) : ''),
       subject_id: note.subject_id ? String(note.subject_id) : '',
       date: note.date || new Date().toISOString().split('T')[0],
       content: note.content || ''
@@ -62,7 +62,7 @@ const LessonNotes: React.FC = () => {
         setIsEditMode(false);
         setEditingNote(null);
         fetchNotes();
-        setFormData({ title: '', class_room_id: '', subject_id: '', date: new Date().toISOString().split('T')[0], content: '' });
+        setFormData({ title: '', class_id: '', subject_id: '', date: new Date().toISOString().split('T')[0], content: '' });
       }
     }
   );
@@ -81,7 +81,7 @@ const LessonNotes: React.FC = () => {
         <button onClick={() => {
           setIsEditMode(false);
           setEditingNote(null);
-          setFormData({ title: '', class_room_id: '', subject_id: '', date: new Date().toISOString().split('T')[0], content: '' });
+          setFormData({ title: '', class_id: '', subject_id: '', date: new Date().toISOString().split('T')[0], content: '' });
           setIsModalOpen(true);
         }} className="flex items-center gap-2 px-6 py-3 bg-brand-primary text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-blue-700 transition-all">
           <Plus size={18} /> Submit New Note
@@ -133,7 +133,7 @@ const LessonNotes: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Class</label>
-              <select required value={formData.class_room_id} onChange={e => setFormData({ ...formData, class_room_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+              <select required value={formData.class_id} onChange={e => setFormData({ ...formData, class_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
                 <option value="">Select Class</option>
                 {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>

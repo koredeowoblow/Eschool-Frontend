@@ -15,6 +15,8 @@ const Assessments: React.FC = () => {
   const { options: classOptions } = useSelectOptions('/classes');
   const { options: termOptions } = useSelectOptions('/terms');
 
+  const { options: subjectOptions } = useSelectOptions('/subjects');
+
   const fetchAssessments = async () => {
     setIsLoading(true);
     try {
@@ -27,17 +29,19 @@ const Assessments: React.FC = () => {
     }
   };
 
-  const [formData, setFormData] = useState({ title: '', class_room_id: '', term_id: '', max_score: '100' });
-  
+  const [formData, setFormData] = useState({
+    title: '', class_id: '', term_id: '', subject_id: '', type: '', total_marks: '100', date: new Date().toISOString().split('T')[0]
+  });
+
   const { submit, isSubmitting } = useFormSubmit(
-    (data) => selectedAssessment 
-      ? api.put(`/assessments/${selectedAssessment.id}`, data) 
+    (data) => selectedAssessment
+      ? api.put(`/assessments/${selectedAssessment.id}`, data)
       : api.post('/assessments', data),
     {
       onSuccess: () => {
         setIsModalOpen(false);
         setSelectedAssessment(null);
-        setFormData({ title: '', class_room_id: '', term_id: '', max_score: '100' });
+        setFormData({ title: '', class_id: '', term_id: '', subject_id: '', type: '', total_marks: '100', date: new Date().toISOString().split('T')[0] });
         fetchAssessments();
       }
     }
@@ -49,11 +53,14 @@ const Assessments: React.FC = () => {
 
   const handleEdit = (item: any) => {
     setSelectedAssessment(item);
-    setFormData({ 
-      title: item.title, 
-      class_room_id: String(item.class_room_id || ''), 
-      term_id: String(item.term_id || ''), 
-      max_score: String(item.max_score || '100') 
+    setFormData({
+      title: item.title,
+      class_id: String(item.class_id || item.class_room_id || ''),
+      term_id: String(item.term_id || ''),
+      subject_id: String(item.subject_id || ''),
+      type: item.type || '',
+      total_marks: String(item.total_marks || item.max_score || '100'),
+      date: item.date || new Date().toISOString().split('T')[0]
     });
     setIsModalOpen(true);
   };
@@ -91,57 +98,86 @@ const Assessments: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => handleEdit(item)} className="p-2 text-gray-300 hover:text-brand-primary transition-all"><Edit2 size={18}/></button>
-                    <button className="p-2 text-gray-300 hover:text-red-500 transition-all"><Trash2 size={18}/></button>
+                    <button onClick={() => handleEdit(item)} className="p-2 text-gray-300 hover:text-brand-primary transition-all"><Edit2 size={18} /></button>
+                    <button className="p-2 text-gray-300 hover:text-red-500 transition-all"><Trash2 size={18} /></button>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="card-premium p-20 text-center text-gray-400 border border-dashed border-gray-200">
-               <Inbox size={48} className="mx-auto mb-4"/>
-               <p className="font-bold text-sm">No assessment schemas established.</p>
+              <Inbox size={48} className="mx-auto mb-4" />
+              <p className="font-bold text-sm">No assessment schemas established.</p>
             </div>
           )}
         </div>
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedAssessment ? "Modify Definition" : "Initialize Evaluation"}>
-         <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); submit(formData); }} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assessment Title</label>
+            <input
+              required type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })}
+              className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" placeholder="e.g. Mid-Term Examination"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assessment Title</label>
-              <input 
-                required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" placeholder="e.g. Mid-Term Examination"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-1">
-                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Class</label>
-                 <select required value={formData.class_room_id} onChange={e => setFormData({...formData, class_room_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-                   <option value="">Select Class</option>
-                   {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                 </select>
-               </div>
-               <div className="space-y-1">
-                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Term</label>
-                 <select required value={formData.term_id} onChange={e => setFormData({...formData, term_id: e.target.value})} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
-                   <option value="">Select Term</option>
-                   {termOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                 </select>
-               </div>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Class</label>
+              <select required value={formData.class_id} onChange={e => setFormData({ ...formData, class_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Class</option>
+                {classOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Maximum Score Capability</label>
-              <input 
-                required type="number" value={formData.max_score} onChange={e => setFormData({...formData, max_score: e.target.value})}
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Term</label>
+              <select required value={formData.term_id} onChange={e => setFormData({ ...formData, term_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Term</option>
+                {termOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Academic Subject</label>
+              <select required value={formData.subject_id} onChange={e => setFormData({ ...formData, subject_id: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Subject</option>
+                {subjectOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Assessment Type</label>
+              <select required value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })} className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold">
+                <option value="">Select Type</option>
+                <option value="Exam">Examination</option>
+                <option value="CA">Continuous Assessment (CA)</option>
+                <option value="Quiz">Quick Quiz</option>
+                <option value="Assignment">Assignment</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Total Marks</label>
+              <input
+                required type="number" value={formData.total_marks} onChange={e => setFormData({ ...formData, total_marks: e.target.value })}
                 className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-black text-lg"
               />
             </div>
-            <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2">
-              {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <><Save size={18}/> Synchronize Schema</>}
-            </button>
-         </form>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Scheduled Date</label>
+              <div className="relative">
+                <Calendar size={16} className="absolute left-3.5 top-4 text-gray-400" />
+                <input required type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="w-full pl-10 p-3.5 bg-gray-50 border border-gray-100 rounded-xl font-bold" />
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-brand-primary text-white rounded-xl font-black uppercase shadow-lg flex items-center justify-center gap-2">
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <><Save size={18} /> Synchronize Schema</>}
+          </button>
+        </form>
       </Modal>
     </div>
   );
