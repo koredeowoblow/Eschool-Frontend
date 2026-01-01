@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      allowedHosts: [
+        'eschool-frontend.onrender.com',
+         '.onrender.com'
+      ],
       proxy: {
         '/api/v1/broadcasting': {
           target: 'https://eschool-1.onrender.com', // Production backend
