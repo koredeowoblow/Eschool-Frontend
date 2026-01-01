@@ -59,7 +59,7 @@ const AcademicSessions: React.FC = () => {
 
   const [termData, setTermData] = useState({ name: '', start_date: '', end_date: '', status: 'active' });
   const { submit: submitTerm, isSubmitting: isSubmittingTerm } = useFormSubmit(
-    (data) => api.post('/terms', { ...data, school_session_id: selectedSessionId }), // POST api/v1/terms
+    (data) => api.post('/terms', { ...data, session_id: selectedSessionId }), // POST api/v1/terms
     {
       onSuccess: () => {
         setIsTermModalOpen(false);
